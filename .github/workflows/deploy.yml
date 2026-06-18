@@ -17,99 +17,23 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v3
 
-    - name: Verify Environment Configuration & Secrets
+    - name: Trigger Render Automatic Deploy Webhook
       run: |
-        echo "[INFO] Verifying deployment secrets..."
-        MISSING_SECRETS=0
+        echo "[CD DEPLOY] Triggering deployment on Render..."
         
-        if [ -z "${{ secrets.OPENAI_API_KEY }}" ]; then
-          echo "[WARN] OPENAI_API_KEY secret is not set. The app will boot but AI quiz will fall back."
-        fi
-        
-        if [ -z "${{ secrets.FLASK_SECRET_KEY }}" ]; then
-          echo "[ERROR] FLASK_SECRET_KEY secret is missing! This is a critical security requirement."
-          MISSING_SECRETS=1
-        fi
-        
-        if [ -z "${{ secrets.DEPLOY_SSH_HOST }}" ]; then
-          echo "[ERROR] DEPLOY_SSH_HOST is missing! Cannot determine remote deployment host."
-          MISSING_SECRETS=1
-        fi
-
-        if [ -z "${{ secrets.DEPLOY_SSH_KEY }}" ]; then
-          echo "[ERROR] DEPLOY_SSH_KEY is missing! Cannot authenticate with deployment server."
-          MISSING_SECRETS=1
-        fi
-        
-        if [ $MISSING_SECRETS -ne 0 ]; then
-          echo "[FATAL] Missing crucial production environment secrets. Deployment aborted."
+        # Validate that the deploy hook URL exists
+        if [ -z "${{ secrets.RENDER_DEPLOY_HOOK_URL }}" ]; then
+          echo "::error::RENDER_DEPLOY_HOOK_URL secret is missing in GitHub repository settings."
+          echo "Please configure it under Settings > Secrets and variables > Actions > New repository secret."
           exit 1
         fi
-        echo "[SUCCESS] All crucial deployment secrets verified."
-
-    - name: Log in to Docker Registry
-      uses: docker/login-action@v2
-      with:
-        registry: ghcr.io
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v2
-
-    - name: Build and Push Docker Image
-      uses: docker/build-push-action@v4
-      with:
-        context: .
-        push: true
-        tags: |
-          ghcr.io/${{ github.repository }}/smart-study-web:latest
-          ghcr.io/${{ github.repository }}/smart-study-web:${{ github.sha }}
-
-    - name: Execute Remote SSH Deployment
-      uses: appleboy/ssh-action@master
-      with:
-        host: ${{ secrets.DEPLOY_SSH_HOST }}
-        username: ${{ secrets.DEPLOY_SSH_USER || 'ubuntu' }}
-        key: ${{ secrets.DEPLOY_SSH_KEY }}
-        port: ${{ secrets.DEPLOY_SSH_PORT || 22 }}
-        script: |
-          echo "[SSH DEPLOY] Connected to production host..."
-          cd /var/www/smartstudyplanner
-          
-          # Write environment variables securely on host
-          echo "MYSQL_HOST=db" > .env
-          echo "MYSQL_PORT=3306" >> .env
-          echo "MYSQL_DATABASE=${{ secrets.MYSQL_DATABASE || 'smart_study' }}" >> .env
-          echo "MYSQL_USER=${{ secrets.MYSQL_USER || 'study_user' }}" >> .env
-          echo "MYSQL_PASSWORD=${{ secrets.MYSQL_PASSWORD }}" >> .env
-          echo "MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }}" >> .env
-          echo "FLASK_SECRET_KEY=${{ secrets.FLASK_SECRET_KEY }}" >> .env
-          echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> .env
-          
-          # Force pull new images and restart containers
-          docker compose pull
-          docker compose down
-          docker compose up -d --remove-orphans
-          
-          # Run database migrations
-          docker compose exec -T web python db_migration.py
-          
-          # Clean unused docker images
-          docker image prune -f
-          
-          echo "[SSH DEPLOY] Containers redeployed and migration executed successfully!"
-
-    - name: Report Deployment Success
-      if: success()
-      run: |
-        echo "[DEPLOY SUCCESS] Deployment to production completed successfully at $(date)."
-        # Example Slack webhook notification could be placed here:
-        # curl -X POST -H 'Content-type: application/json' --data '{"text":"🚀 Smart Study Planner deployment succeeded for commit ${{ github.sha }}!"}' ${{ secrets.SLACK_WEBHOOK }}
-
-    - name: Report Deployment Failure
-      if: failure()
-      run: |
-        echo "[DEPLOY FAILURE] Deployment failed during execution. Check logs for details."
-        # Example Slack webhook notification:
-        # curl -X POST -H 'Content-type: application/json' --data '{"text":"🚨 Smart Study Planner deployment failed for commit ${{ github.sha }}!"}' ${{ secrets.SLACK_WEBHOOK }}
+        
+        # Perform curl POST request to trigger Render deploy
+        HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}")
+        
+        if [ "$HTTP_STATUS" -eq 200 ] || [ "$HTTP_STATUS" -eq 201 ] || [ "$HTTP_STATUS" -eq 202 ]; then
+          echo "[SUCCESS] Render deployment hook triggered successfully (HTTP status: $HTTP_STATUS)."
+        else
+          echo "::error::Render deployment hook failed with HTTP status code $HTTP_STATUS."
+          exit 1
+        fi
