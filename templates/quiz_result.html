@@ -1,0 +1,99 @@
+<!-- templates/quiz_result.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz Results - Smart Study Planner</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .result-container {
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 30px;
+            background: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            border: 1px solid var(--border-color);
+        }
+        .score-banner {
+            background: var(--success-color);
+            color: white;
+            text-align: center;
+            padding: 20px;
+            border-radius: var(--border-radius);
+            margin-bottom: 30px;
+        }
+        .score-banner h2 { margin: 0; font-size: 36px; font-weight: 700; }
+        .score-banner p { margin: 5px 0 0 0; font-size: 18px; opacity: 0.9; }
+        
+        .result-card {
+            margin-bottom: 20px;
+            padding: 20px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            background: white;
+            box-shadow: var(--box-shadow);
+        }
+        .correct { border-left: 4px solid var(--success-color); }
+        .incorrect { border-left: 4px solid var(--danger-color); }
+        
+        .question-text { font-weight: 600; font-size: 16px; margin-bottom: 10px; color: var(--dark-color); }
+        .answer-row { margin-bottom: 5px; color: var(--text-color); }
+        .explanation { margin-top: 15px; font-style: italic; color: var(--gray-color); }
+    </style>
+</head>
+<body>
+    {% if motivation_quote %}
+    <div class="motivation-banner">
+        <span class="quote-text">{{ motivation_quote }}</span>
+    </div>
+    {% endif %}
+    <nav class="navbar">
+        <div class="container">
+            <h1 class="logo">📚 Smart Study Planner</h1>
+            <ul class="nav-links">
+                <li><a href="/">Home</a></li>
+                <li><a href="/quiz">Take Another Quiz</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="result-container">
+        <div class="score-banner" style="background: {% if score/total >= 0.7 %}var(--success-color){% elif score/total >= 0.4 %}var(--warning-color){% else %}var(--danger-color){% endif %}">
+            <h2>{{ score }} / {{ total }}</h2>
+            <p>Your Score</p>
+        </div>
+
+        <h3>Detailed Review</h3>
+        
+        {% for r in results %}
+        <div class="result-card {% if r.is_correct %}correct{% else %}incorrect{% endif %}">
+            <div class="question-text">{{ loop.index }}. {{ r.question }}</div>
+            
+            <div class="answer-row">
+                <strong>Your Answer:</strong> 
+                <span style="color: {% if r.is_correct %}var(--success-color){% else %}var(--danger-color){% endif %}; font-weight: 500;">
+                    {{ r.user if r.user else 'No answer provided' }}
+                </span>
+            </div>
+            
+            {% if not r.is_correct %}
+            <div class="answer-row">
+                <strong>Correct Answer:</strong> <span style="color: var(--success-color); font-weight: 500;">{{ r.correct }}</span>
+            </div>
+            {% endif %}
+            
+            <div class="explanation">
+                <strong>Explanation:</strong> {{ r.explanation }}
+            </div>
+        </div>
+        {% endfor %}
+        
+        <div style="text-align: center; margin-top: 30px;">
+            <a href="/quiz" class="btn btn-primary" style="margin-right: 10px;">Try Another Topic</a>
+            <a href="/" class="btn btn-secondary">Back to Home</a>
+        </div>
+    </div>
+</body>
+</html>

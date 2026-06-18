@@ -1,0 +1,156 @@
+<!-- templates/history.html -->
+<!-- Display study history and statistics -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Study History - Smart Study Planner</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <h1 class="logo">📚 Smart Study Planner</h1>
+            <ul class="nav-links">
+                <li><a href="/">Home</a></li>
+                <li><a href="/planner">Start Planning</a></li>
+                <li><a href="/history">History</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container">
+        <section class="history-section">
+            <h2>Your Study History & Statistics</h2>
+            <p class="subtitle">Track your progress and see your study patterns</p>
+
+            <!-- Weekly Statistics -->
+            <div class="stats-container">
+                <h3>📊 Weekly Statistics</h3>
+                
+                {% if session_count > 0 %}
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-number">{{ stats.total_sessions }}</div>
+                            <div class="stat-label">Total Sessions</div>
+                        </div>
+                        
+                        <div class="stat-card">
+                            <div class="stat-number">{{ stats.total_study_hours }}</div>
+                            <div class="stat-label">Study Hours</div>
+                        </div>
+                        
+                        <div class="stat-card">
+                            <div class="stat-number">{{ stats.average_mood|round(1) }}/5</div>
+                            <div class="stat-label">Average Mood</div>
+                        </div>
+                        
+                        <div class="stat-card">
+                            <div class="stat-number">{{ stats.average_sleep|round(1) }}h</div>
+                            <div class="stat-label">Average Sleep</div>
+                        </div>
+                        
+                        <div class="stat-card">
+                            <div class="stat-number">{{ stats.average_productivity|round(0)|int }}/100</div>
+                            <div class="stat-label">Avg Productivity</div>
+                        </div>
+                        
+                        <div class="stat-card">
+                            <div class="stat-number">{{ stats.most_studied_subject }}</div>
+                            <div class="stat-label">Most Studied</div>
+                        </div>
+                    </div>
+
+                    <!-- Subject Study Hours -->
+                    {% if stats.subject_hours %}
+                        <div class="subject-stats">
+                            <h4>📚 Study Time by Subject</h4>
+                            <div class="subject-list">
+                                {% for subject, hours in stats.subject_hours.items() %}
+                                    <div class="subject-item">
+                                        <div class="subject-name">{{ subject }}</div>
+                                        <div class="subject-hours">{{ hours }} hours</div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    {% endif %}
+                {% else %}
+                    <div class="empty-state">
+                        <p>No study sessions recorded yet.</p>
+                        <a href="/planner" class="btn btn-primary">Start Your First Session</a>
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- Recent Sessions Table -->
+            {% if sessions %}
+                <div class="sessions-container">
+                    <h3>📝 Recent Study Sessions</h3>
+                    <div class="sessions-table">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Date & Time</th>
+                                    <th>Mood</th>
+                                    <th>Study Hours</th>
+                                    <th>Sleep Hours</th>
+                                    <th>Days Left</th>
+                                    <th>Subjects</th>
+                                    <th>Productivity</th>
+                                    <th>Burnout Risk</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for session in sessions|reverse %}
+                                    <tr>
+                                        <td>{{ session.Date }}</td>
+                                        <td>
+                                            {% if session.Mood == '1' %}😢
+                                            {% elif session.Mood == '2' %}😕
+                                            {% elif session.Mood == '3' %}😐
+                                            {% elif session.Mood == '4' %}🙂
+                                            {% else %}😄{% endif %}
+                                            {{ session.Mood }}/5
+                                        </td>
+                                        <td>{{ session.Study_Hours }}</td>
+                                        <td>{{ session.Sleep_Hours }}</td>
+                                        <td>{{ session.Days_Left }}</td>
+                                        <td>{{ session.Subjects }}</td>
+                                        <td>{{ session.Productivity_Score }}/100</td>
+                                        <td>
+                                            <span class="risk-badge" style="background-color: 
+                                                {% if session.Burnout_Risk == 'Low' %}#27ae60
+                                                {% elif session.Burnout_Risk == 'Medium' %}#f39c12
+                                                {% else %}#e74c3c{% endif %};">
+                                                {{ session.Burnout_Risk }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            {% endif %}
+
+            <!-- Action Buttons -->
+            <div class="history-actions">
+                <a href="/planner" class="btn btn-primary">Create New Plan</a>
+                <a href="/" class="btn btn-secondary">Home</a>
+            </div>
+
+            <!-- Data Info -->
+            <div class="data-info">
+                <p><strong>💾 Data Storage:</strong> All your study sessions are saved in <code>study_data.csv</code> file in the project folder.</p>
+                <p><strong>📱 Total Sessions:</strong> {{ session_count }} session(s) recorded</p>
+            </div>
+        </section>
+    </div>
+
+    <footer>
+        <p>&copy; 2026 Smart Study Planner | Created with Python & Flask</p>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: smart_study_db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-smart_study}
+      MYSQL_USER: ${MYSQL_USER:-study_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-study_secure_pass}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "${MYSQL_USER:-study_user}", "-p${MYSQL_PASSWORD:-study_secure_pass}"]
+      timeout: 10s
+      retries: 5
+      interval: 10s
+
+  web:
+    build: .
+    container_name: smart_study_web
+    restart: always
+    environment:
+      MYSQL_HOST: db
+      MYSQL_USER: ${MYSQL_USER:-study_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-study_secure_pass}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-smart_study}
+      MYSQL_PORT: 3306
+      FLASK_SECRET_KEY: ${FLASK_SECRET_KEY:-defaultsecretkeychangeme}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+    ports:
+      - "5000:5000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  mysql_data:

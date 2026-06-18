@@ -1,0 +1,81 @@
+<!-- templates/home.html -->
+<!-- Home page with welcome message and navigation -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Study Planner</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <h1 class="logo">📚 Smart Study Planner</h1>
+            <ul class="nav-links">
+                <li><a href="/">Home</a></li>
+                <li><a href="/planner">Start Planning</a></li>
+                <li><a href="/history">History</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container">
+        <section class="hero">
+            <h2>Welcome to Your Smart Study Planner!</h2>
+            <p>Create personalized study plans based on your mood, time, and learning needs.</p>
+            
+            <div class="features">
+                <div class="feature-card">
+                    <h3>📊 Mood Analysis</h3>
+                    <p>We analyze your mood to suggest the right study intensity for you.</p>
+                </div>
+                
+                <div class="feature-card">
+                    <h3>⏱️ Smart Time Management</h3>
+                    <p>Intelligently allocate study hours between subjects based on difficulty.</p>
+                </div>
+                
+                <div class="feature-card">
+                    <h3>⚠️ Burnout Detection</h3>
+                    <p>Get alerts if you're studying too much with insufficient sleep.</p>
+                </div>
+                
+                <div class="feature-card">
+                    <h3>☕ Break Scheduler</h3>
+                    <p>Smart break scheduling to keep you fresh during study sessions.</p>
+                </div>
+                
+                <div class="feature-card">
+                    <h3>📈 Productivity Scoring</h3>
+                    <p>Track your productivity based on mood, sleep, and study hours.</p>
+                </div>
+                
+                <div class="feature-card">
+                    <h3>📝 Study History</h3>
+                    <p>Review your study sessions and weekly statistics.</p>
+                </div>
+            </div>
+
+            <div class="cta-buttons">
+                <a href="/planner" class="btn btn-primary">Start Planning Now</a>
+                <a href="/history" class="btn btn-secondary">View History</a>
+            </div>
+        </section>
+
+        <section class="info">
+            <h3>How It Works</h3>
+            <ol>
+                <li><strong>Fill the Form:</strong> Tell us about your mood, available study time, exam days, subjects, and sleep hours.</li>
+                <li><strong>AI Analysis:</strong> Our Python logic analyzes your situation and mood.</li>
+                <li><strong>Get Plan:</strong> Receive a personalized study plan with time allocation and break schedule.</li>
+                <li><strong>Track Progress:</strong> Save your sessions and review weekly statistics.</li>
+            </ol>
+        </section>
+    </div>
+
+    <footer>
+        <p>&copy; 2026 Smart Study Planner | Created with Python & Flask</p>
+    </footer>
+</body>
+</html>

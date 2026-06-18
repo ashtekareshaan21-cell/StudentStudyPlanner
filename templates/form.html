@@ -1,0 +1,144 @@
+<!-- templates/form.html -->
+<!-- Study planner form for user input -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Study Plan - Smart Study Planner</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <h1 class="logo">📚 Smart Study Planner</h1>
+            <ul class="nav-links">
+                <li><a href="/">Home</a></li>
+                <li><a href="/planner">Start Planning</a></li>
+                <li><a href="/history">History</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container">
+        <section class="form-section">
+            <h2>Create Your Study Plan</h2>
+            <p class="subtitle">Fill in the details below to get a personalized study plan.</p>
+
+            <form method="POST" action="/generate-plan" class="study-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                
+                <!-- Mood Input -->
+                <div class="form-group">
+                    <label for="mood">Your Current Mood (1-5)</label>
+                    <div class="mood-selector">
+                        <div class="mood-option">
+                            <input type="radio" id="mood1" name="mood" value="1" required>
+                            <label for="mood1" class="mood-label">😢<span>Very Bad</span></label>
+                        </div>
+                        <div class="mood-option">
+                            <input type="radio" id="mood2" name="mood" value="2">
+                            <label for="mood2" class="mood-label">😕<span>Bad</span></label>
+                        </div>
+                        <div class="mood-option">
+                            <input type="radio" id="mood3" name="mood" value="3" checked>
+                            <label for="mood3" class="mood-label">😐<span>Okay</span></label>
+                        </div>
+                        <div class="mood-option">
+                            <input type="radio" id="mood4" name="mood" value="4">
+                            <label for="mood4" class="mood-label">🙂<span>Good</span></label>
+                        </div>
+                        <div class="mood-option">
+                            <input type="radio" id="mood5" name="mood" value="5">
+                            <label for="mood5" class="mood-label">😄<span>Excellent</span></label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Study Hours -->
+                <div class="form-group">
+                    <label for="study_hours">Study Hours Available (0-24)</label>
+                    <input 
+                        type="number" 
+                        id="study_hours" 
+                        name="study_hours" 
+                        min="0" 
+                        max="24" 
+                        step="0.5" 
+                        placeholder="e.g., 4.5"
+                        required
+                    >
+                    <small>How many hours can you study today?</small>
+                </div>
+
+                <!-- Days Left -->
+                <div class="form-group">
+                    <label for="days_left">Days Until Exam</label>
+                    <input 
+                        type="number" 
+                        id="days_left" 
+                        name="days_left" 
+                        min="1" 
+                        max="365" 
+                        placeholder="e.g., 7"
+                        required
+                    >
+                    <small>How many days until your exam?</small>
+                </div>
+
+                <!-- Subjects -->
+                <div class="form-group">
+                    <label for="subjects">Subjects (comma-separated)</label>
+                    <input 
+                        type="text" 
+                        id="subjects" 
+                        name="subjects" 
+                        placeholder="e.g., Math, Physics, Chemistry"
+                        required
+                    >
+                    <small>List all subjects you need to study (separated by commas)</small>
+                </div>
+
+                <!-- Sleep Hours -->
+                <div class="form-group">
+                    <label for="sleep_hours">Last Night's Sleep Hours</label>
+                    <input 
+                        type="number" 
+                        id="sleep_hours" 
+                        name="sleep_hours" 
+                        min="0" 
+                        max="24" 
+                        step="0.5" 
+                        placeholder="e.g., 7"
+                        required
+                    >
+                    <small>How many hours did you sleep last night? (Ideal: 7-8 hours)</small>
+                </div>
+
+                <!-- Submit Button -->
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary btn-large">Generate My Study Plan</button>
+                    <a href="/" class="btn btn-secondary">Cancel</a>
+                </div>
+            </form>
+
+            <!-- Example Section -->
+            <div class="example-section">
+                <h3>Example Input</h3>
+                <p>To see how the planner works, try this:</p>
+                <ul>
+                    <li>Mood: Good (4)</li>
+                    <li>Study Hours: 5</li>
+                    <li>Days Until Exam: 7</li>
+                    <li>Subjects: Math, Physics, Chemistry</li>
+                    <li>Sleep Hours: 6</li>
+                </ul>
+            </div>
+        </section>
+    </div>
+
+    <footer>
+        <p>&copy; 2026 Smart Study Planner | Created with Python & Flask</p>
+    </footer>
+</body>
+</html>

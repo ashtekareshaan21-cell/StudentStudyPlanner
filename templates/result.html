@@ -1,0 +1,208 @@
+<!-- templates/result.html -->
+<!-- Display generated study plan -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Study Plan - Smart Study Planner</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <h1 class="logo">📚 Smart Study Planner</h1>
+            <ul class="nav-links">
+                <li><a href="/">Home</a></li>
+                <li><a href="/planner">Start Planning</a></li>
+                <li><a href="/history">History</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container">
+        <section class="result-section">
+            <h2>Your Personalized Study Plan</h2>
+            <p class="subtitle">Based on your input, here's your optimized study strategy</p>
+
+            <!-- User Input Summary -->
+            <div class="input-summary">
+                <h3>Your Input</h3>
+                <div class="summary-grid">
+                    <div class="summary-item">
+                        <strong>Mood Level:</strong> {{ mood }}/5
+                    </div>
+                    <div class="summary-item">
+                        <strong>Study Hours:</strong> {{ study_hours }} hours
+                    </div>
+                    <div class="summary-item">
+                        <strong>Days Until Exam:</strong> {{ days_left }} days
+                    </div>
+                    <div class="summary-item">
+                        <strong>Sleep Hours:</strong> {{ sleep_hours }} hours
+                    </div>
+                    <div class="summary-item">
+                        <strong>Subjects:</strong> {{ subjects|join(', ') }}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Study Timer -->
+            <div class="timer-card">
+                <h3>⏱️ Study Session Timer</h3>
+                <div class="timer-container">
+                    <div class="timer-display" id="timerDisplay">
+                        <div class="timer-circle">
+                            <div class="timer-text">
+                                <span class="timer-time" id="timerTime" data-study-hours="{{ study_hours }}">{{ '%02d' % (study_hours|int) }}:00:00</span>
+                                <p class="timer-label">Study Time</p>
+                            </div>
+                            <svg class="timer-svg" viewBox="0 0 200 200">
+                                <circle cx="100" cy="100" r="90" class="timer-bg"></circle>
+                                <circle cx="100" cy="100" r="90" class="timer-progress" id="timerProgress" 
+                                    style="stroke-dasharray: 565.48; stroke-dashoffset: 0;"></circle>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="timer-controls">
+                        <button id="startBtn" class="btn btn-primary">▶ Start Timer</button>
+                        <button id="pauseBtn" class="btn btn-warning" style="display:none;">⏸ Pause</button>
+                        <button id="resumeBtn" class="btn btn-success" style="display:none;">▶ Resume</button>
+                        <button id="resetBtn" class="btn btn-danger">🔄 Reset</button>
+                    </div>
+                    <div class="timer-status">
+                        <p id="timerStatus">Ready to start your study session</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mood Analysis -->
+            <div class="result-card">
+                <h3>😊 Mood Analysis</h3>
+                <div class="card-content">
+                    <p><strong>Your Mood Level:</strong> {{ plan.mood_level }}</p>
+                    <p><strong>Study Intensity:</strong> {{ plan.study_intensity }}</p>
+                    <p><strong>Recommendation:</strong> {{ plan.mood_recommendation }}</p>
+                </div>
+            </div>
+
+            <!-- Situation Analysis -->
+            <div class="result-card">
+                <h3>⏰ Exam Situation Analysis</h3>
+                <div class="card-content">
+                    <p><strong>Status:</strong> <span class="status-badge" style="background-color: 
+                        {% if plan.situation_status == 'URGENT' %}var(--danger-color)
+                        {% elif plan.situation_status == 'NEAR' %}var(--warning-color)
+                        {% else %}var(--success-color){% endif %};">
+                        {{ plan.situation_status }}
+                    </span></p>
+                    <p><strong>Study Mode:</strong> {{ plan.study_mode }}</p>
+                    <p><strong>Priority:</strong> {{ plan.situation_priority }}</p>
+                    <p><strong>Recommended Hours Per Day:</strong> {{ plan.hours_per_day }} hours</p>
+                    <p><strong>Focus:</strong> {{ plan.situation_focus }}</p>
+                </div>
+            </div>
+
+            <!-- Productivity Score -->
+            <div class="result-card">
+                <h3>📈 Productivity Score</h3>
+                <div class="card-content">
+                    <div class="score-display">
+                        <div class="score-circle">
+                            {{ plan.productivity_score }}<span>/100</span>
+                        </div>
+                        <p>
+                            {% if plan.productivity_score >= 75 %}
+                                <strong style="color: var(--success-color);">Excellent!</strong> You're in great shape for studying.
+                            {% elif plan.productivity_score >= 50 %}
+                                <strong style="color: var(--warning-color);">Good</strong> You have decent productivity conditions.
+                            {% else %}
+                                <strong style="color: var(--danger-color);">Low</strong> Consider improving your study conditions.
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Burnout Detection -->
+            <div class="result-card {% if plan.burnout_warning %}warning-card{% endif %}">
+                <h3>⚠️ Burnout Detection</h3>
+                <div class="card-content">
+                    <p><strong>Burnout Risk:</strong> 
+                        <span style="color: 
+                            {% if plan.burnout_risk == 'Low' %}var(--success-color)
+                            {% elif plan.burnout_risk == 'Medium' %}var(--warning-color)
+                            {% else %}var(--danger-color){% endif %}; font-weight: 600;">
+                            {{ plan.burnout_risk }}
+                        </span>
+                    </p>
+                    <p><strong>Advice:</strong></p>
+                    <p style="font-size: 1.1em; font-weight: bold;">{{ plan.burnout_advice }}</p>
+                </div>
+            </div>
+
+            <!-- Time Allocation -->
+            <div class="result-card">
+                <h3>⏱️ Time Allocation by Subject</h3>
+                <div class="card-content">
+                    <div class="time-allocation">
+                        {% for subject, hours in plan.time_allocation.items() %}
+                            <div class="allocation-item">
+                                <div class="allocation-label">
+                                    <strong>{{ subject }}</strong>
+                                    <span class="allocation-hours">{{ hours }} hours</span>
+                                </div>
+                                <div class="allocation-bar">
+                                    <div class="allocation-progress" style="width: {{ (hours / study_hours * 100)|int }}%"></div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Study Tips -->
+            <div class="result-card">
+                <h3>💡 Personalized Study Tips</h3>
+                <div class="card-content">
+                    <ul>
+                        {% if plan.study_intensity == 'Light' %}
+                            <li>✓ Start with easy topics to build confidence</li>
+                            <li>✓ Use active recall and spaced repetition</li>
+                            <li>✓ Don't force deep concentration</li>
+                            <li>✓ Focus on understanding basics first</li>
+                        {% elif plan.study_intensity == 'Moderate' %}
+                            <li>✓ Mix between easy and difficult topics</li>
+                            <li>✓ Use practice problems after studying</li>
+                            <li>✓ Maintain steady focus</li>
+                            <li>✓ Review previous topics regularly</li>
+                        {% else %}
+                            <li>✓ Tackle difficult topics when most alert</li>
+                            <li>✓ Use active learning techniques</li>
+                            <li>✓ Solve problems to deepen understanding</li>
+                            <li>✓ Create connections between concepts</li>
+                        {% endif %}
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="result-actions" style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;">
+                <form action="/quiz" method="POST" style="margin: 0;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <input type="hidden" name="topics" value="{{ subjects|join(', ') }}">
+                    <button type="submit" class="btn btn-primary">✨ Take AI Quiz</button>
+                </form>
+                <a href="/planner" class="btn btn-primary">Create Another Plan</a>
+                <a href="/history" class="btn btn-secondary">View History</a>
+                <a href="/" class="btn btn-secondary">Back Home</a>
+            </div>
+        </section>
+    </div>
+
+    <footer>
+        <p>&copy; 2026 Smart Study Planner | Created with Python & Flask</p>
+        <script src="{{ url_for('static', filename='timer.js') }}"></script>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,100 @@
+<!-- templates/quiz.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Take Quiz - Smart Study Planner</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .quiz-container {
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 30px;
+            background: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            border: 1px solid var(--border-color);
+        }
+        .question-card {
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .question-title {
+            font-size: 18px;
+            margin-bottom: 15px;
+            font-weight: 600;
+            color: var(--dark-color);
+        }
+        .badge {
+            background: var(--light-color);
+            color: var(--primary-color);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-left: 10px;
+            border: 1px solid var(--border-color);
+        }
+        .options label {
+            display: block;
+            margin-bottom: 10px;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .options label:hover {
+            background: var(--light-color);
+            border-color: var(--primary-color);
+        }
+    </style>
+</head>
+<body>
+    {% if motivation_quote %}
+    <div class="motivation-banner">
+        <span class="quote-text">{{ motivation_quote }}</span>
+    </div>
+    {% endif %}
+    <nav class="navbar">
+        <div class="container">
+            <h1 class="logo">📚 Smart Study Planner</h1>
+            <ul class="nav-links">
+                <li><a href="/">Home</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="quiz-container">
+        <h2>Your AI Generated Quiz</h2>
+        {% if api_used == "fallback" %}
+        <div style="background: #fff3cd; color: #856404; padding: 15px; margin-bottom: 20px; border-radius: 5px;">
+            ⚠️ <strong>Notice:</strong> We couldn't connect to the AI service, so we're providing a fallback quiz.
+        </div>
+        {% endif %}
+
+        <form method="POST" action="/submit-quiz">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            {% for q in questions %}
+            <div class="question-card">
+                <div class="question-title">
+                    {{ loop.index }}. {{ q.question }}
+                    <span class="badge">{{ q.level }}</span>
+                </div>
+                <div class="options">
+                    {% for key, val in q.options.items() %}
+                    <label>
+                        <input type="radio" name="q{{ q.id }}" value="{{ key }}" required>
+                        <strong>{{ key }}:</strong> {{ val }}
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+            
+            <button type="submit" class="btn btn-primary" style="width: 100%; font-size: 18px;">Submit Answers</button>
+        </form>
+    </div>
+</body>
+</html>

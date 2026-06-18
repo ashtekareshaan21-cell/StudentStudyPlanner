@@ -1,0 +1,59 @@
+<!-- templates/quiz_form.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generate Quiz - Smart Study Planner</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .quiz-container {
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 30px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    {% if motivation_quote %}
+    <div class="motivation-banner">
+        <span class="quote-text">{{ motivation_quote }}</span>
+    </div>
+    {% endif %}
+    <nav class="navbar">
+        <div class="container">
+            <h1 class="logo">📚 Smart Study Planner</h1>
+            <ul class="nav-links">
+                <li><a href="/">Home</a></li>
+                <li><a href="/quiz">AI Quiz</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="quiz-container">
+        <h2>Generate AI Quiz</h2>
+        <p>Enter the topics you studied today, and our AI will generate a custom quiz based on Bloom's Taxonomy!</p>
+        
+        <form method="POST" action="/generate-quiz">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <div class="form-group">
+                <input type="text" name="topics" placeholder="e.g. Python OOP, Data Structures..." value="{{ topics|default('') }}" required>
+            </div>
+            <button type="submit" class="btn btn-primary" style="width: 100%;">Generate Quiz</button>
+        </form>
+    </div>
+</body>
+</html>
