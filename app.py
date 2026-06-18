@@ -5,8 +5,9 @@ import secrets
 import bcrypt
 import requests as http_requests
 import dotenv
+from datetime import datetime
 from functools import wraps
-from flask import Flask, render_template, request, session, abort, redirect
+from flask import Flask, render_template, request, session, abort, redirect, g, jsonify
 
 from study_planner import generate_study_plan, format_study_plan_for_display
 from data_handler import save_study_session, get_all_sessions, calculate_weekly_stats
@@ -89,6 +90,10 @@ def inject_csrf_token():
 
 @app.before_request
 def validate_csrf():
+    # Exclude API endpoints from CSRF verification
+    if request.path.startswith("/api/"):
+        return
+        
     if request.method == "POST":
         token = request.form.get("csrf_token")
         if not token or token != session.get("csrf_token"):
@@ -114,7 +119,7 @@ def add_security_headers(response):
     response.headers['X-XSS-Protection'] = '1; mode=block'
     return response
 
-# ================= AUTHENTICATION DECORATOR =================
+# ================= AUTHENTICATION DECORATORS =================
 def login_required(f):
     """
     Decorator that checks if a user is in the active session.
@@ -124,6 +129,36 @@ def login_required(f):
     def decorated_function(*args, **kwargs):
         if "user_id" not in session:
             return render_template("login.html", error="Please log in to access this page.")
+        return f(*args, **kwargs)
+    return decorated_function
+
+def api_login_required(f):
+    """
+    Hybrid decorator that validates browser session OR stateless API Bearer token.
+    On success, stores the resolved User instance in Flask's g.current_user context.
+    On failure, returns a JSON error response instead of a template redirect.
+    """
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        user = None
+        
+        # 1. Check for stateless Authorization Bearer token header
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header.split(" ", 1)[1].strip()
+            if token:
+                user = User.query.filter_by(api_token=token).first()
+                
+        # 2. Check for active session cookie fallback
+        if not user and "user_id" in session:
+            user = User.query.get(session["user_id"])
+            
+        # 3. Handle unauthorized request
+        if not user:
+            return jsonify({"error": "Unauthorized. Please log in or provide a valid API token."}), 401
+            
+        # Bind user to request context global 'g'
+        g.current_user = user
         return f(*args, **kwargs)
     return decorated_function
 
@@ -596,6 +631,114 @@ def history():
     sessions = get_all_sessions(session["user_id"])
     stats = calculate_weekly_stats(sessions)
     return render_template('history.html', sessions=sessions, stats=stats)
+
+
+# ================= REST API ENDPOINTS =================
+
+@app.route('/api/v1/token', methods=['GET'])
+@login_required
+def get_api_token():
+    """
+    Retrieve the authenticated user's API token.
+    Used by clients to bootstrap token-based Authorization.
+    """
+    user = User.query.get(session["user_id"])
+    return jsonify({"api_token": user.api_token})
+
+@app.route('/api/v1/sessions', methods=['GET'])
+@api_login_required
+def api_get_sessions():
+    """
+    Get all study sessions for the authenticated user.
+    """
+    sessions = StudySession.query.filter_by(user_id=g.current_user.id).order_by(StudySession.id.asc()).all()
+    return jsonify([s.to_dict() for s in sessions])
+
+@app.route('/api/v1/sessions', methods=['POST'])
+@api_login_required
+def api_create_session():
+    """
+    Create a new study session for the user.
+    Accepts JSON body and performs input validation.
+    """
+    data = request.get_json() or {}
+    
+    # Validation checks
+    try:
+        mood = int(data.get("mood", 3))
+        study_hours = float(data.get("study_hours", 2.0))
+        sleep_hours = float(data.get("sleep_hours", 7.0))
+        days_left = int(data.get("days_left", 7))
+    except (ValueError, TypeError):
+        return jsonify({"error": "Invalid numeric types for mood, study_hours, sleep_hours, or days_left."}), 400
+        
+    if not (1 <= mood <= 5):
+        return jsonify({"error": "Mood must be an integer between 1 and 5."}), 400
+    if study_hours < 0 or sleep_hours < 0 or days_left < 0:
+        return jsonify({"error": "Study hours, sleep hours, and days left must be non-negative."}), 400
+        
+    subjects_raw = data.get("subjects", ["General"])
+    if not isinstance(subjects_raw, list):
+        subjects_raw = [str(subjects_raw)]
+    subjects_raw = [s.strip() for s in subjects_raw if s.strip()]
+    if not subjects_raw:
+        subjects_raw = ["General"]
+    subjects_str = ";".join(subjects_raw)
+    
+    # Dynamic calculations if missing
+    from analyzer import calculate_productivity_score, detect_burnout
+    
+    productivity_score = data.get("productivity_score")
+    if productivity_score is None:
+        productivity_score = calculate_productivity_score(mood, sleep_hours, study_hours)
+    else:
+        try:
+            productivity_score = float(productivity_score)
+        except (ValueError, TypeError):
+            return jsonify({"error": "Productivity score must be a number."}), 400
+            
+    burnout_risk = data.get("burnout_risk")
+    if burnout_risk is None:
+        burnout_risk = detect_burnout(study_hours, sleep_hours)['risk_level']
+    else:
+        burnout_risk = str(burnout_risk)
+        
+    try:
+        new_session = StudySession(
+            user_id=g.current_user.id,
+            session_date=datetime.utcnow(),
+            mood=mood,
+            study_hours=study_hours,
+            sleep_hours=sleep_hours,
+            days_left=days_left,
+            subjects=subjects_str,
+            productivity_score=productivity_score,
+            burnout_risk=burnout_risk
+        )
+        db.session.add(new_session)
+        db.session.commit()
+        return jsonify(new_session.to_dict()), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": f"Failed to save session: {str(e)}"}), 500
+
+@app.route('/api/v1/plans', methods=['GET'])
+@api_login_required
+def api_get_plans():
+    """
+    Get all generated AI study plans for the user.
+    """
+    plans = StudyPlan.query.filter_by(user_id=g.current_user.id).order_by(StudyPlan.id.asc()).all()
+    return jsonify([p.to_dict() for p in plans])
+
+@app.route('/api/v1/quiz-results', methods=['GET'])
+@api_login_required
+def api_get_quiz_results():
+    """
+    Get all quiz results for the user.
+    """
+    results = QuizResult.query.filter_by(user_id=g.current_user.id).order_by(QuizResult.id.asc()).all()
+    return jsonify([r.to_dict() for r in results])
 
 
 if __name__ == "__main__":
