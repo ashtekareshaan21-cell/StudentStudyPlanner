@@ -35,12 +35,12 @@ jobs:
 
     - name: Security scan with Bandit
       run: |
-        # Scan python files for security risks (exclude virtual environments and test file)
-        bandit -r . -x ./.venv,./venv,./test_planner.py -ll
+        # Scan python files for security risks (exclude virtual environments and test files)
+        bandit -r . -x ./.venv,./venv,./test_planner.py,./test_db_models.py -ll
 
     - name: Run unit tests
       run: |
-        python -m unittest test_planner.py
+        python -m unittest discover -s . -p "test_*.py"
 
     - name: Verify Flask Application Imports
       run: |

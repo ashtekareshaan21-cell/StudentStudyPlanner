@@ -36,18 +36,33 @@ if not app.secret_key:
     app.secret_key = secrets.token_hex(32)
 
 # ================= DATABASE & MODELS CONFIGURATION =================
-# We configure SQLite for local development (Phase 2).
-# SQLAlchemy automatically looks inside the 'instance' folder for relative database paths.
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///smart_study.db"
+# Dynamic DB URI: PostgreSQL in production, SQLite fallback locally
+db_url = os.getenv("DATABASE_URL")
+if db_url:
+    # SQLAlchemy 1.4+ requires postgresql:// scheme
+    if db_url.startswith("postgres://"):
+        db_url = db_url.replace("postgres://", "postgresql://", 1)
+    # Inject pg8000 dialect for pure-Python driver compatibility on Python 3.15
+    if "postgresql" in db_url and "+pg8000" not in db_url:
+        db_url = db_url.replace("postgresql://", "postgresql+pg8000://", 1)
+    app.config["SQLALCHEMY_DATABASE_URI"] = db_url
+else:
+    app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///smart_study.db"
+
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 # Initialize the Flask-SQLAlchemy integration
-from models import db, User
+from models import db, User, StudySession, StudyPlan, QuizResult
 db.init_app(app)
 
-# Ensure the database tables are created on boot
+# Initialize Flask-Migrate for database schema migrations
+from flask_migrate import Migrate
+migrate = Migrate(app, db)
+
+# Ensure the database tables are created on boot as fallback
 with app.app_context():
     db.create_all()
+
 
 # ================= SECURITY HARDENING =================
 
@@ -466,11 +481,31 @@ def generate_plan():
     raw_plan = generate_study_plan(mood, study_hours, days_left, subjects, sleep_hours)
     plan = format_study_plan_for_display(raw_plan)
 
+    # Save session with associated user ID
     save_study_session(
-        mood, study_hours, sleep_hours, days_left, subjects,
+        session["user_id"], mood, study_hours, sleep_hours, days_left, subjects,
         raw_plan['productivity_score'],
         raw_plan['burnout_analysis']['risk_level']
     )
+
+    # Save study plan details in the database
+    try:
+        new_plan = StudyPlan(
+            user_id=session["user_id"],
+            days_left=days_left,
+            subjects=";".join(subjects),
+            study_hours=study_hours,
+            sleep_hours=sleep_hours,
+            mood=mood,
+            productivity_score=raw_plan['productivity_score'],
+            burnout_risk=raw_plan['burnout_analysis']['risk_level'],
+            plan_details=json.dumps(plan)
+        )
+        db.session.add(new_plan)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print(f"[ERROR] Failed to save study plan to database: {e}")
 
     return render_template(
         'result.html',
@@ -502,6 +537,7 @@ def generate_quiz():
         questions = get_fallback_quiz(topics)
 
     session["quiz"] = questions
+    session["quiz_topics"] = topics or "General Study"
 
     return render_template("quiz.html", questions=questions)
 
@@ -530,6 +566,22 @@ def submit_quiz():
             "is_correct": is_correct
         })
 
+    # Save quiz result in database
+    try:
+        topics = session.get("quiz_topics", "General Study")
+        quiz_result = QuizResult(
+            user_id=session["user_id"],
+            topics=topics,
+            score=score,
+            total_questions=len(questions),
+            results_json=json.dumps(results)
+        )
+        db.session.add(quiz_result)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print(f"[ERROR] Failed to save quiz result to database: {e}")
+
     return render_template(
         "quiz_result.html",
         score=score,
@@ -541,7 +593,7 @@ def submit_quiz():
 @app.route('/history')
 @login_required
 def history():
-    sessions = get_all_sessions()
+    sessions = get_all_sessions(session["user_id"])
     stats = calculate_weekly_stats(sessions)
     return render_template('history.html', sessions=sessions, stats=stats)
 

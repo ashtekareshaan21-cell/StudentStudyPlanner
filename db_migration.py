@@ -1,108 +1,69 @@
 # db_migration.py
-# Migrates data from local CSV (study_data.csv) to the MySQL database.
+# Migrates data from local CSV (study_data.csv) to PostgreSQL or SQLite via SQLAlchemy models.
 
 import os
 import csv
-import mysql.connector
 from datetime import datetime
 import dotenv
 
 # Load environment variables
 dotenv.load_dotenv()
 
-DB_HOST = os.getenv("MYSQL_HOST")
-DB_USER = os.getenv("MYSQL_USER")
-DB_PASSWORD = os.getenv("MYSQL_PASSWORD")
-DB_DATABASE = os.getenv("MYSQL_DATABASE")
-DB_PORT = os.getenv("MYSQL_PORT", "3306")
+from app import app, db
+from models import User, StudySession
+
 CSV_FILE = "study_data.csv"
 
 def run_migration():
-    print("[MIGRATION] Starting database migration...")
+    print("[MIGRATION] Starting database migration from CSV...")
     
-    if not DB_HOST or not DB_USER or not DB_DATABASE:
-        print("[MIGRATION ERROR] Database environment variables are not fully configured.")
-        print("[MIGRATION ERROR] Please check MYSQL_HOST, MYSQL_USER, and MYSQL_DATABASE.")
-        return False
-        
     if not os.path.exists(CSV_FILE):
         print(f"[MIGRATION INFO] CSV file '{CSV_FILE}' does not exist. No historical data to migrate.")
-        # Create empty table anyway
-        create_empty_table()
         return True
 
-    # Connect to MySQL
-    try:
-        conn = mysql.connector.connect(
-            host=DB_HOST,
-            user=DB_USER,
-            password=DB_PASSWORD,
-            database=DB_DATABASE,
-            port=int(DB_PORT)
-        )
-    except Exception as e:
-        print(f"[MIGRATION ERROR] Could not connect to MySQL database: {e}")
-        return False
-
-    try:
-        cursor = conn.cursor()
-        
-        # Create table if it doesn't exist
-        print("[MIGRATION] Ensuring study_sessions table exists...")
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS study_sessions (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                session_date DATETIME NOT NULL,
-                mood INT NOT NULL,
-                study_hours FLOAT NOT NULL,
-                sleep_hours FLOAT NOT NULL,
-                days_left INT NOT NULL,
-                subjects TEXT NOT NULL,
-                productivity_score FLOAT NOT NULL,
-                burnout_risk VARCHAR(50) NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    with app.app_context():
+        # Retrieve or create a migration user
+        user = User.query.first()
+        if not user:
+            print("[MIGRATION WARN] No users found in the database. Creating a default 'migrated_user'...")
+            import bcrypt
+            salt = bcrypt.gensalt()
+            pw_hash = bcrypt.hashpw(b"migration_secure_pass_123", salt).decode('utf-8')
+            user = User(
+                username="migrated_user",
+                email="migrated_user@example.com",
+                password_hash=pw_hash
             )
-        """)
-        conn.commit()
-
-        # Count existing rows to check if already migrated
-        cursor.execute("SELECT COUNT(*) FROM study_sessions")
-        db_count = cursor.fetchone()[0]
-        print(f"[MIGRATION] Current database rows: {db_count}")
+            db.session.add(user)
+            db.session.commit()
+            print(f"[MIGRATION] Default user '{user.username}' created with ID {user.id}")
 
         # Read CSV data
         sessions = []
-        with open(CSV_FILE, 'r') as file:
-            reader = csv.DictReader(file)
-            for row in reader:
-                sessions.append(row)
-        
-        print(f"[MIGRATION] Found {len(sessions)} rows in CSV file.")
+        try:
+            with open(CSV_FILE, 'r') as file:
+                reader = csv.DictReader(file)
+                for row in reader:
+                    sessions.append(row)
+        except Exception as e:
+            print(f"[MIGRATION ERROR] Could not read CSV file: {e}")
+            return False
 
+        print(f"[MIGRATION] Found {len(sessions)} rows in CSV file.")
         if len(sessions) == 0:
             print("[MIGRATION] CSV file is empty. Nothing to import.")
-            cursor.close()
-            conn.close()
             return True
+
+        # Fetch existing sessions for this user to prevent duplicates
+        existing_records = set()
+        existing_sessions = StudySession.query.filter_by(user_id=user.id).all()
+        for es in existing_sessions:
+            date_str = es.session_date.strftime("%Y-%m-%d %H:%M:%S")
+            existing_records.add((date_str, int(es.mood), float(es.study_hours), float(es.sleep_hours)))
 
         inserted_count = 0
         skipped_count = 0
 
-        # Query existing sessions from DB to prevent duplicate migration
-        cursor.execute("SELECT session_date, mood, study_hours, sleep_hours FROM study_sessions")
-        existing_records = set()
-        for r in cursor.fetchall():
-            # Format datetime as string to match CSV representation
-            date_str = r[0].strftime("%Y-%m-%d %H:%M:%S") if isinstance(r[0], datetime) else str(r[0])
-            # key: (date, mood, study_hours, sleep_hours)
-            existing_records.add((date_str, int(r[1]), float(r[2]), float(r[3])))
-
-        # Insert CSV rows
-        insert_query = """
-            INSERT INTO study_sessions (session_date, mood, study_hours, sleep_hours, days_left, subjects, productivity_score, burnout_risk)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-        """
-        
         for s in sessions:
             try:
                 date_val = s['Date']
@@ -114,70 +75,41 @@ def run_migration():
                 productivity_score_val = float(s['Productivity_Score'])
                 burnout_risk_val = s['Burnout_Risk']
 
-                # Check if this record already exists in DB
-                record_key = (date_val, mood_val, study_hours_val, sleep_hours_val)
+                # Normalize date formatting
+                parsed_date = datetime.strptime(date_val, "%Y-%m-%d %H:%M:%S")
+                norm_date_str = parsed_date.strftime("%Y-%m-%d %H:%M:%S")
+
+                # Check if this record already exists
+                record_key = (norm_date_str, mood_val, study_hours_val, sleep_hours_val)
                 if record_key in existing_records:
                     skipped_count += 1
                     continue
 
-                cursor.execute(insert_query, (
-                    date_val,
-                    mood_val,
-                    study_hours_val,
-                    sleep_hours_val,
-                    days_left_val,
-                    subjects_val,
-                    productivity_score_val,
-                    burnout_risk_val
-                ))
+                new_session = StudySession(
+                    user_id=user.id,
+                    session_date=parsed_date,
+                    mood=mood_val,
+                    study_hours=study_hours_val,
+                    sleep_hours=sleep_hours_val,
+                    days_left=days_left_val,
+                    subjects=subjects_val,
+                    productivity_score=productivity_score_val,
+                    burnout_risk=burnout_risk_val
+                )
+                db.session.add(new_session)
                 inserted_count += 1
+                # Add to set to prevent duplicating within the CSV itself
+                existing_records.add(record_key)
+
             except Exception as e:
                 print(f"[MIGRATION WARN] Failed to parse/migrate row {s}: {e}")
                 continue
 
-        conn.commit()
-        cursor.close()
-        conn.close()
+        if inserted_count > 0:
+            db.session.commit()
         
         print(f"[MIGRATION SUCCESS] Complete! Inserted: {inserted_count}, Skipped: {skipped_count} duplicates.")
         return True
-
-    except Exception as e:
-        print(f"[MIGRATION ERROR] Migration failed: {e}")
-        if conn.is_connected():
-            conn.close()
-        return False
-
-def create_empty_table():
-    try:
-        conn = mysql.connector.connect(
-            host=DB_HOST,
-            user=DB_USER,
-            password=DB_PASSWORD,
-            database=DB_DATABASE,
-            port=int(DB_PORT)
-        )
-        cursor = conn.cursor()
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS study_sessions (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                session_date DATETIME NOT NULL,
-                mood INT NOT NULL,
-                study_hours FLOAT NOT NULL,
-                sleep_hours FLOAT NOT NULL,
-                days_left INT NOT NULL,
-                subjects TEXT NOT NULL,
-                productivity_score FLOAT NOT NULL,
-                burnout_risk VARCHAR(50) NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-        conn.commit()
-        cursor.close()
-        conn.close()
-        print("[MIGRATION] Created empty study_sessions table in database.")
-    except Exception as e:
-        print(f"[MIGRATION ERROR] Could not create empty table: {e}")
 
 if __name__ == "__main__":
     run_migration()
