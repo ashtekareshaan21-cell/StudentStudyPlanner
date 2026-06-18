@@ -2,11 +2,11 @@ import os
 import json
 import random
 import secrets
+import bcrypt
 import requests as http_requests
 import dotenv
-from flask import Flask, render_template, request, session, abort
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
+from functools import wraps
+from flask import Flask, render_template, request, session, abort, redirect
 
 from study_planner import generate_study_plan, format_study_plan_for_display
 from data_handler import save_study_session, get_all_sessions, calculate_weekly_stats
@@ -19,7 +19,7 @@ dotenv.load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_API_URL = "https://api.openai.com/v1/chat/completions"
 
-# ---- Startup validation (ASCII-safe for Windows console) ----
+# ---- Startup validation ----
 if not OPENAI_API_KEY:
     print("[ERROR] OPENAI_API_KEY is not set. Quiz will use fallback questions.")
 elif not OPENAI_API_KEY.startswith("sk-"):
@@ -35,9 +35,26 @@ if not app.secret_key:
     print("[WARN] FLASK_SECRET_KEY is not set. Using a temporary random key for safety.")
     app.secret_key = secrets.token_hex(32)
 
+# ================= DATABASE & MODELS CONFIGURATION =================
+# We configure SQLite for local development (Phase 2).
+# SQLAlchemy automatically looks inside the 'instance' folder for relative database paths.
+app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///smart_study.db"
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+
+# Initialize the Flask-SQLAlchemy integration
+from models import db, User
+db.init_app(app)
+
+# Ensure the database tables are created on boot
+with app.app_context():
+    db.create_all()
+
 # ================= SECURITY HARDENING =================
 
 # 1. Rate Limiting setup
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+
 limiter = Limiter(
     key_func=get_remote_address,
     app=app,
@@ -57,13 +74,12 @@ def inject_csrf_token():
 
 @app.before_request
 def validate_csrf():
-    # Only validate POST requests
     if request.method == "POST":
         token = request.form.get("csrf_token")
         if not token or token != session.get("csrf_token"):
             return "CSRF Token missing or invalid. Action blocked.", 400
 
-# 3. Secure Response Headers (XSS, Clickjacking, CSP protection)
+# 3. Secure Response Headers
 @app.after_request
 def add_security_headers(response):
     response.headers['Content-Security-Policy'] = (
@@ -82,6 +98,19 @@ def add_security_headers(response):
     response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
     response.headers['X-XSS-Protection'] = '1; mode=block'
     return response
+
+# ================= AUTHENTICATION DECORATOR =================
+def login_required(f):
+    """
+    Decorator that checks if a user is in the active session.
+    If not, redirects them to the login screen with an error state.
+    """
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if "user_id" not in session:
+            return render_template("login.html", error="Please log in to access this page.")
+        return f(*args, **kwargs)
+    return decorated_function
 
 # ================= MOTIVATION =================
 def get_motivation():
@@ -336,11 +365,92 @@ def get_fallback_quiz(topics):
 def home():
     return render_template("home.html")
 
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if "user_id" in session:
+        return redirect('/')
+        
+    if request.method == 'POST':
+        username = request.form.get("username", "").strip()
+        email = request.form.get("email", "").strip()
+        password = request.form.get("password", "")
+        confirm_password = request.form.get("confirm_password", "")
+        
+        # Validation checks
+        if not username or not email or not password:
+            return render_template("register.html", error="All fields are required.")
+            
+        if len(password) < 6:
+            return render_template("register.html", error="Password must be at least 6 characters.")
+            
+        if password != confirm_password:
+            return render_template("register.html", error="Passwords do not match.")
+            
+        # Check if user already exists
+        existing_username = User.query.filter_by(username=username).first()
+        if existing_username:
+            return render_template("register.html", error="Username is already taken.")
+            
+        existing_email = User.query.filter_by(email=email).first()
+        if existing_email:
+            return render_template("register.html", error="Email is already registered.")
+            
+        # Hash password using bcrypt salt
+        salt = bcrypt.gensalt()
+        pw_hash = bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
+        
+        # Create and write user
+        new_user = User(username=username, email=email, password_hash=pw_hash)
+        try:
+            db.session.add(new_user)
+            db.session.commit()
+            return render_template("login.html", success="Registration successful. Please log in.")
+        except Exception as e:
+            db.session.rollback()
+            print(f"[AUTH ERROR] Failed user creation: {e}")
+            return render_template("register.html", error="A database error occurred. Try again.")
+            
+    return render_template("register.html")
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if "user_id" in session:
+        return redirect('/')
+        
+    if request.method == 'POST':
+        username_or_email = request.form.get("username_or_email", "").strip()
+        password = request.form.get("password", "")
+        
+        if not username_or_email or not password:
+            return render_template("login.html", error="Please fill in all fields.")
+            
+        # Query user
+        user = User.query.filter((User.username == username_or_email) | (User.email == username_or_email)).first()
+        
+        # Check password hash validity
+        if user and bcrypt.checkpw(password.encode('utf-8'), user.password_hash.encode('utf-8')):
+            session["user_id"] = user.id
+            session["username"] = user.username
+            return redirect('/')
+        else:
+            return render_template("login.html", error="Invalid username/email or password.")
+            
+    return render_template("login.html")
+
+@app.route('/logout')
+def logout():
+    session.pop("user_id", None)
+    session.pop("username", None)
+    return redirect('/')
+
+
 @app.route('/planner')
+@login_required
 def planner():
     return render_template('form.html')
 
 @app.route('/generate-plan', methods=['POST'])
+@login_required
 @limiter.limit("10 per minute")
 def generate_plan():
     mood = int(request.form.get('mood', 3))
@@ -374,12 +484,14 @@ def generate_plan():
 
 
 @app.route('/quiz', methods=['GET', 'POST'])
+@login_required
 def quiz():
     topics = request.form.get("topics", "") if request.method == 'POST' else ""
     return render_template("quiz_form.html", topics=topics)
 
 
 @app.route('/generate-quiz', methods=['POST'])
+@login_required
 @limiter.limit("5 per minute")
 def generate_quiz():
     topics = request.form.get("topics")
@@ -395,6 +507,7 @@ def generate_quiz():
 
 
 @app.route('/submit-quiz', methods=['POST'])
+@login_required
 @limiter.limit("10 per minute")
 def submit_quiz():
     questions = session.get("quiz", [])
@@ -426,6 +539,7 @@ def submit_quiz():
 
 
 @app.route('/history')
+@login_required
 def history():
     sessions = get_all_sessions()
     stats = calculate_weekly_stats(sessions)
