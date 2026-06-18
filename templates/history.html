@@ -7,6 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Study History - Smart Study Planner</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <nav class="navbar">
@@ -90,6 +91,157 @@
                     </div>
                 {% endif %}
             </div>
+
+            <!-- Visual Dashboard Charts -->
+            {% if sessions %}
+                <div class="charts-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; margin-top: 30px; margin-bottom: 30px;">
+                    <div class="chart-card" style="background: var(--card-bg, #ffffff); border: 1px solid var(--border-color, #e0e0e0); border-radius: 8px; padding: 20px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
+                        <h3 style="margin-top: 0; margin-bottom: 15px; color: var(--text-color, #2c3e50); font-size: 1.1rem; border-bottom: 2px solid #3498db; padding-bottom: 5px; display: inline-block;">📈 Productivity & Study Hours Trend</h3>
+                        <div style="position: relative; height: 300px; width: 100%;">
+                            <canvas id="productivityChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-card" style="background: var(--card-bg, #ffffff); border: 1px solid var(--border-color, #e0e0e0); border-radius: 8px; padding: 20px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
+                        <h3 style="margin-top: 0; margin-bottom: 15px; color: var(--text-color, #2c3e50); font-size: 1.1rem; border-bottom: 2px solid #2ecc71; padding-bottom: 5px; display: inline-block;">🍕 Study Time Allocation (Hours)</h3>
+                        <div style="position: relative; height: 300px; width: 100%; display: flex; justify-content: center; align-items: center;">
+                            <canvas id="subjectChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <script>
+                document.addEventListener("DOMContentLoaded", function() {
+                    // Load statistics charts dynamically via REST API
+                    fetch('/api/v1/sessions')
+                        .then(response => response.json())
+                        .then(data => {
+                            if (!data || data.length === 0) return;
+
+                            // Sort chronologically
+                            data.sort((a, b) => new Date(a.session_date) - new Date(b.session_date));
+
+                            // 1. Line Chart Data
+                            const labels = data.map(s => {
+                                const d = new Date(s.session_date);
+                                return d.toLocaleDateString(undefined, {month: 'short', day: 'numeric'}) + ' ' + d.toLocaleTimeString(undefined, {hour: '2-digit', minute:'2-digit'});
+                            });
+                            const productivityScores = data.map(s => s.productivity_score);
+                            const studyHours = data.map(s => s.study_hours);
+
+                            // 2. Doughnut Chart Data (by subject)
+                            const subjectHours = {};
+                            data.forEach(s => {
+                                const list = s.subjects || [];
+                                if (list.length > 0) {
+                                    const alloc = parseFloat(s.study_hours) / list.length;
+                                    list.forEach(subj => {
+                                        const clean = subj.trim();
+                                        if (clean) {
+                                            subjectHours[clean] = (subjectHours[clean] || 0) + alloc;
+                                        }
+                                    });
+                                }
+                            });
+
+                            const subjectLabels = Object.keys(subjectHours);
+                            const subjectData = Object.values(subjectHours).map(h => Math.round(h * 10) / 10);
+
+                            // 3. Render Line Chart
+                            const ctxProd = document.getElementById('productivityChart').getContext('2d');
+                            new Chart(ctxProd, {
+                                type: 'line',
+                                data: {
+                                    labels: labels,
+                                    datasets: [
+                                        {
+                                            label: 'Productivity Score',
+                                            data: productivityScores,
+                                            borderColor: '#3498db',
+                                            backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                                            borderWidth: 2,
+                                            tension: 0.3,
+                                            yAxisID: 'y'
+                                        },
+                                        {
+                                            label: 'Hours Studied',
+                                            data: studyHours,
+                                            borderColor: '#2ecc71',
+                                            backgroundColor: 'rgba(46, 204, 113, 0.1)',
+                                            borderWidth: 2,
+                                            tension: 0.3,
+                                            yAxisID: 'y1'
+                                        }
+                                    ]
+                                },
+                                options: {
+                                    responsive: true,
+                                    maintainAspectRatio: false,
+                                    interaction: {
+                                        mode: 'index',
+                                        intersect: false,
+                                    },
+                                    scales: {
+                                        y: {
+                                            type: 'linear',
+                                            display: true,
+                                            position: 'left',
+                                            min: 0,
+                                            max: 100,
+                                            title: {
+                                                display: true,
+                                                text: 'Productivity Score'
+                                            }
+                                        },
+                                        y1: {
+                                            type: 'linear',
+                                            display: true,
+                                            position: 'right',
+                                            min: 0,
+                                            grid: {
+                                                drawOnChartArea: false
+                                            },
+                                            title: {
+                                                display: true,
+                                                text: 'Hours Studied'
+                                            }
+                                        }
+                                    }
+                                }
+                            });
+
+                            // 4. Render Doughnut Chart
+                            const ctxSub = document.getElementById('subjectChart').getContext('2d');
+                            new Chart(ctxSub, {
+                                type: 'doughnut',
+                                data: {
+                                    labels: subjectLabels,
+                                    datasets: [{
+                                        data: subjectData,
+                                        backgroundColor: [
+                                            '#2ecc71', '#3498db', '#9b59b6', '#f1c40f',
+                                            '#e74c3c', '#1abc9c', '#e67e22', '#34495e'
+                                        ],
+                                        borderWidth: 1
+                                    }]
+                                },
+                                options: {
+                                    responsive: true,
+                                    maintainAspectRatio: false,
+                                    plugins: {
+                                        legend: {
+                                            position: 'bottom',
+                                            labels: {
+                                                boxWidth: 12,
+                                                padding: 10
+                                            }
+                                        }
+                                    }
+                                }
+                            });
+                        });
+                });
+                </script>
+            {% endif %}
 
             <!-- Recent Sessions Table -->
             {% if sessions %}

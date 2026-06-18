@@ -630,7 +630,7 @@ def submit_quiz():
 def history():
     sessions = get_all_sessions(session["user_id"])
     stats = calculate_weekly_stats(sessions)
-    return render_template('history.html', sessions=sessions, stats=stats)
+    return render_template('history.html', sessions=sessions, stats=stats, session_count=len(sessions))
 
 
 # ================= REST API ENDPOINTS =================
