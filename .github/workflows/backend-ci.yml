@@ -36,7 +36,7 @@ jobs:
     - name: Security scan with Bandit
       run: |
         # Scan python files for security risks (exclude virtual environments and test files)
-        bandit -r . -x ./.venv,./venv,./test_planner.py,./test_db_models.py,./test_api.py -ll
+        bandit -r . -x ./.venv,./venv,./test_planner.py,./test_db_models.py,./test_api.py,./test_tasks.py -ll
 
     - name: Run unit tests
       run: |

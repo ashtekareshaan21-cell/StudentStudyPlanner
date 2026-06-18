@@ -53,7 +53,7 @@ else:
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 # Initialize the Flask-SQLAlchemy integration
-from models import db, User, StudySession, StudyPlan, QuizResult
+from models import db, User, StudySession, StudyPlan, QuizResult, Task
 db.init_app(app)
 
 # Initialize Flask-Migrate for database schema migrations
@@ -739,6 +739,136 @@ def api_get_quiz_results():
     """
     results = QuizResult.query.filter_by(user_id=g.current_user.id).order_by(QuizResult.id.asc()).all()
     return jsonify([r.to_dict() for r in results])
+
+
+# ================= TASK MANAGEMENT UI & API ROUTES =================
+
+@app.route('/tasks')
+@login_required
+def tasks_page():
+    """
+    Renders the task board page interface.
+    """
+    return render_template('tasks.html')
+
+@app.route('/api/v1/tasks', methods=['GET'])
+@api_login_required
+def api_get_tasks():
+    """
+    Retrieve all tasks for the authenticated user.
+    """
+    tasks = Task.query.filter_by(user_id=g.current_user.id).order_by(Task.id.asc()).all()
+    return jsonify([t.to_dict() for t in tasks])
+
+@app.route('/api/v1/tasks', methods=['POST'])
+@api_login_required
+def api_create_task():
+    """
+    Create a new task for the authenticated user.
+    """
+    data = request.get_json() or {}
+    title = data.get("title", "").strip()
+    if not title:
+        return jsonify({"error": "Task title is required."}), 400
+
+    description = data.get("description", "").strip() or None
+    priority = data.get("priority", "Medium").strip()
+    if priority not in ["Low", "Medium", "High"]:
+        return jsonify({"error": "Priority must be one of: Low, Medium, High."}), 400
+
+    due_date_str = data.get("due_date", "").strip()
+    due_date = None
+    if due_date_str:
+        try:
+            due_date = datetime.strptime(due_date_str, "%Y-%m-%d")
+        except ValueError:
+            return jsonify({"error": "Invalid due_date format. Use YYYY-MM-DD."}), 400
+
+    try:
+        new_task = Task(
+            user_id=g.current_user.id,
+            title=title,
+            description=description,
+            due_date=due_date,
+            priority=priority,
+            status="Pending"
+        )
+        db.session.add(new_task)
+        db.session.commit()
+        return jsonify(new_task.to_dict()), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": f"Failed to create task: {str(e)}"}), 500
+
+@app.route('/api/v1/tasks/<int:task_id>', methods=['PUT'])
+@api_login_required
+def api_update_task(task_id):
+    """
+    Update details (e.g. status, title, priority) of an existing task.
+    """
+    task = Task.query.filter_by(id=task_id, user_id=g.current_user.id).first()
+    if not task:
+        return jsonify({"error": "Task not found."}), 404
+
+    data = request.get_json() or {}
+
+    # Update fields if provided
+    if "title" in data:
+        title = data["title"].strip()
+        if not title:
+            return jsonify({"error": "Task title cannot be empty."}), 400
+        task.title = title
+
+    if "description" in data:
+        task.description = data["description"].strip() or None
+
+    if "priority" in data:
+        priority = data["priority"].strip()
+        if priority not in ["Low", "Medium", "High"]:
+            return jsonify({"error": "Priority must be one of: Low, Medium, High."}), 400
+        task.priority = priority
+
+    if "status" in data:
+        status = data["status"].strip()
+        if status not in ["Pending", "In Progress", "Completed"]:
+            return jsonify({"error": "Status must be one of: Pending, In Progress, Completed."}), 400
+        task.status = status
+
+    if "due_date" in data:
+        due_date_str = data["due_date"]
+        if due_date_str:
+            due_date_str = due_date_str.strip()
+            try:
+                task.due_date = datetime.strptime(due_date_str, "%Y-%m-%d")
+            except ValueError:
+                return jsonify({"error": "Invalid due_date format. Use YYYY-MM-DD."}), 400
+        else:
+            task.due_date = None
+
+    try:
+        db.session.commit()
+        return jsonify(task.to_dict())
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": f"Failed to update task: {str(e)}"}), 500
+
+@app.route('/api/v1/tasks/<int:task_id>', methods=['DELETE'])
+@api_login_required
+def api_delete_task(task_id):
+    """
+    Delete a task.
+    """
+    task = Task.query.filter_by(id=task_id, user_id=g.current_user.id).first()
+    if not task:
+        return jsonify({"error": "Task not found."}), 404
+
+    try:
+        db.session.delete(task)
+        db.session.commit()
+        return jsonify({"message": "Task deleted successfully."})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": f"Failed to delete task: {str(e)}"}), 500
 
 
 if __name__ == "__main__":

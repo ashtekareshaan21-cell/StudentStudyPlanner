@@ -26,6 +26,7 @@ class User(db.Model):
     sessions = db.relationship('StudySession', backref='user', lazy=True, cascade="all, delete-orphan")
     plans = db.relationship('StudyPlan', backref='user', lazy=True, cascade="all, delete-orphan")
     quiz_results = db.relationship('QuizResult', backref='user', lazy=True, cascade="all, delete-orphan")
+    tasks = db.relationship('Task', backref='user', lazy=True, cascade="all, delete-orphan")
 
     def to_dict(self):
         """
@@ -162,3 +163,37 @@ class QuizResult(db.Model):
 
     def __repr__(self):
         return f"<QuizResult {self.id} for User {self.user_id}>"
+
+
+class Task(db.Model):
+    """
+    Model representing user-created tasks.
+    """
+    __tablename__ = 'tasks'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    title = db.Column(db.String(120), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    due_date = db.Column(db.DateTime, nullable=True)
+    priority = db.Column(db.String(20), nullable=False, default='Medium')  # Low, Medium, High
+    status = db.Column(db.String(20), nullable=False, default='Pending')  # Pending, In Progress, Completed
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        """
+        Serialize Task details.
+        """
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "title": self.title,
+            "description": self.description,
+            "due_date": self.due_date.strftime("%Y-%m-%d") if self.due_date else None,
+            "priority": self.priority,
+            "status": self.status,
+            "created_at": self.created_at.strftime("%Y-%m-%d %H:%M:%S") if self.created_at else None
+        }
+
+    def __repr__(self):
+        return f"<Task {self.id}: {self.title} for User {self.user_id}>"
