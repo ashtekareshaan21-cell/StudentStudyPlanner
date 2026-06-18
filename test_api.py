@@ -212,5 +212,24 @@ class TestRestAPI(unittest.TestCase):
         self.assertEqual(data[0]["score"], 4)
         self.assertEqual(data[0]["results"][0]["q"], "Q1")
 
+    def test_docs_routes(self):
+        # /docs should redirect to /docs/swagger
+        resp = self.client.get("/docs")
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn("/docs/swagger", resp.location)
+
+        # /docs/swagger should return 200 and Swagger UI markup
+        resp_swagger = self.client.get("/docs/swagger")
+        self.assertEqual(resp_swagger.status_code, 200)
+        self.assertIn(b"swagger-ui", resp_swagger.data)
+        self.assertIn(b"swagger_init.js", resp_swagger.data)
+
+        # /docs/redoc should return 200 and ReDoc markup
+        resp_redoc = self.client.get("/docs/redoc")
+        self.assertEqual(resp_redoc.status_code, 200)
+        self.assertIn(b"redoc", resp_redoc.data)
+        self.assertIn(b"openapi.json", resp_redoc.data)
+
 if __name__ == '__main__':
     unittest.main()
+

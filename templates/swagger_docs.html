@@ -1,0 +1,96 @@
+<!-- templates/swagger_docs.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive API Docs (Swagger) - Smart Study Planner</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui.css">
+    <style>
+        .docs-container {
+            max-width: 1200px;
+            margin: 30px auto;
+            padding: 20px;
+            background: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            border: 1px solid #e2e8f0;
+        }
+        .docs-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #edf2f7;
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+        }
+        .docs-header h2 {
+            margin: 0;
+            color: #2c3e50;
+        }
+        .docs-tabs a {
+            text-decoration: none;
+            color: #7f8c8d;
+            font-weight: bold;
+            padding: 8px 16px;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+        }
+        .docs-tabs a.active {
+            background: #3498db;
+            color: white;
+        }
+        .docs-tabs a:hover:not(.active) {
+            background: #edf2f7;
+            color: #2980b9;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <h1 class="logo">📚 Smart Study Planner</h1>
+            <ul class="nav-links">
+                <li><a href="/">Home</a></li>
+                {% if session.get('user_id') %}
+                    <li><a href="/planner">Start Planning</a></li>
+                    <li><a href="/tasks">Tasks</a></li>
+                    <li><a href="/history">History</a></li>
+                    <li><a href="/docs" class="active">API Docs</a></li>
+                    <li class="welcome-text" style="color: white; margin-left: 15px; font-weight: bold; display: inline-block;">Welcome, {{ session.username }}!</li>
+                    <li><a href="/logout" class="btn-logout" style="color: #ff4d4d; font-weight: bold; margin-left: 10px;">Logout</a></li>
+                {% else %}
+                    <li><a href="/docs" class="active">API Docs</a></li>
+                    <li><a href="/login" class="btn-login" style="font-weight: bold;">Login</a></li>
+                    <li><a href="/register" class="btn-register" style="font-weight: bold; margin-left: 10px;">Register</a></li>
+                {% endif %}
+            </ul>
+        </div>
+    </nav>
+
+    <div class="docs-container">
+        <div class="docs-header">
+            <div>
+                <h2>🔌 RESTful API Reference</h2>
+                <p style="color: #7f8c8d; margin-top: 5px; margin-bottom: 0;">Interactive developer console powered by Swagger UI</p>
+            </div>
+            <div class="docs-tabs">
+                <a href="/docs/swagger" class="active">Swagger UI</a>
+                <a href="/docs/redoc">ReDoc</a>
+            </div>
+        </div>
+
+        <div id="swagger-ui"></div>
+    </div>
+
+    <footer>
+        <p>&copy; 2026 Smart Study Planner | Created with Python & Flask</p>
+    </footer>
+
+    <!-- Swagger UI dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-standalone-preset.js"></script>
+    <script src="{{ url_for('static', filename='swagger_init.js') }}"></script>
+</body>
+</html>

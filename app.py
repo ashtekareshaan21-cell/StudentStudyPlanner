@@ -105,11 +105,12 @@ def validate_csrf():
 def add_security_headers(response):
     response.headers['Content-Security-Policy'] = (
         "default-src 'self'; "
-        "script-src 'self' https://cdn.jsdelivr.net; "
-        "style-src 'self' 'unsafe-inline'; "
+        "script-src 'self' https://cdn.jsdelivr.net https://unpkg.com; "
+        "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com; "
         "font-src 'self'; "
-        "img-src 'self' data:; "
+        "img-src 'self' data: https://unpkg.com https://fastly.jsdelivr.net https://cdn.redoc.ly; "
         "connect-src 'self' https://api.openai.com; "
+        "worker-src 'self' blob:; "
         "frame-ancestors 'none'; "
         "object-src 'none';"
     )
@@ -874,6 +875,28 @@ def api_delete_task(task_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": f"Failed to delete task: {str(e)}"}), 500
+
+
+@app.route('/docs')
+def docs_index():
+    """
+    Redirect /docs to the Swagger UI page as default.
+    """
+    return redirect('/docs/swagger')
+
+@app.route('/docs/swagger')
+def docs_swagger():
+    """
+    Renders Swagger UI documentation panel.
+    """
+    return render_template('swagger_docs.html')
+
+@app.route('/docs/redoc')
+def docs_redoc():
+    """
+    Renders ReDoc documentation panel.
+    """
+    return render_template('redoc_docs.html')
 
 
 if __name__ == "__main__":

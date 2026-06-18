@@ -1,0 +1,629 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Smart Study Planner API",
+    "description": "RESTful API documentation for the Smart Study Planner application. Allows tracking study sessions, managing tasks, and retrieving AI-generated plans and quiz histories. Authenticate requests using a Bearer token or active browser session.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "Current Server (Local or Production)"
+    }
+  ],
+  "security": [
+    {
+      "BearerAuth": []
+    }
+  ],
+  "paths": {
+    "/api/v1/token": {
+      "get": {
+        "summary": "Retrieve Authenticated User's API Token",
+        "description": "Fetches the current user's unique API token. Requires an active browser session.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "API token retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "api_token": {
+                      "type": "string",
+                      "example": "3b29c9a7d30f4e4184288b8fa2d51d8b"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          }
+        }
+      }
+    },
+    "/api/v1/sessions": {
+      "get": {
+        "summary": "List User Study Sessions",
+        "description": "Retrieves all study sessions logged by the authenticated user in chronological order.",
+        "responses": {
+          "200": {
+            "description": "List of study sessions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/StudySession"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          }
+        }
+      },
+      "post": {
+        "summary": "Log a New Study Session",
+        "description": "Saves a new study session, validating range constraints. Calculates productivity score and burnout risk if not supplied.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["mood", "study_hours", "sleep_hours", "days_left"],
+                "properties": {
+                  "mood": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 5,
+                    "description": "User mood rating from 1 (poor) to 5 (excellent)",
+                    "example": 4
+                  },
+                  "study_hours": {
+                    "type": "number",
+                    "minimum": 0,
+                    "description": "Total study duration in hours",
+                    "example": 3.5
+                  },
+                  "sleep_hours": {
+                    "type": "number",
+                    "minimum": 0,
+                    "description": "Total hours of sleep preceding the session",
+                    "example": 7.0
+                  },
+                  "days_left": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Days remaining until exams or deadlines",
+                    "example": 5
+                  },
+                  "subjects": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "List of subjects covered during the study session",
+                    "example": ["Mathematics", "Physics"]
+                  },
+                  "productivity_score": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 100,
+                    "description": "Optional custom productivity score. Auto-calculated if omitted.",
+                    "example": 85
+                  },
+                  "burnout_risk": {
+                    "type": "string",
+                    "enum": ["Low", "Medium", "High"],
+                    "description": "Optional custom burnout assessment. Auto-calculated if omitted.",
+                    "example": "Low"
+                  }
+                }
+              }
+            }
+          },
+          "x-codegen-request-body-name": "sessionData"
+        },
+        "responses": {
+          "201": {
+            "description": "Study session logged successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudySession"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          }
+        }
+      }
+    },
+    "/api/v1/plans": {
+      "get": {
+        "summary": "List User Study Plans",
+        "description": "Retrieves all generated AI study plan templates saved by the user.",
+        "responses": {
+          "200": {
+            "description": "List of study plans",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/StudyPlan"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          }
+        }
+      }
+    },
+    "/api/v1/quiz-results": {
+      "get": {
+        "summary": "List User Quiz Results",
+        "description": "Retrieves history of AI-generated quiz submissions, scores, and question-by-question breakdowns.",
+        "responses": {
+          "200": {
+            "description": "List of quiz results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/QuizResult"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          }
+        }
+      }
+    },
+    "/api/v1/tasks": {
+      "get": {
+        "summary": "List User Tasks",
+        "description": "Retrieves all tasks on the user's task board.",
+        "responses": {
+          "200": {
+            "description": "List of tasks",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Task"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a Task",
+        "description": "Adds a new task to the board in the 'Pending' state.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["title"],
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "description": "Task title (escaped automatically)",
+                    "example": "Review Calculus Limits"
+                  },
+                  "description": {
+                    "type": "string",
+                    "description": "Optional description notes (escaped automatically)",
+                    "example": "Do textbook problems 4a, 4b, and 5"
+                  },
+                  "priority": {
+                    "type": "string",
+                    "enum": ["Low", "Medium", "High"],
+                    "default": "Medium",
+                    "example": "High"
+                  },
+                  "due_date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "Optional deadline (format: YYYY-MM-DD)",
+                    "example": "2026-06-25"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Task created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Task"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          }
+        }
+      }
+    },
+    "/api/v1/tasks/{task_id}": {
+      "put": {
+        "summary": "Update Task Details",
+        "description": "Modifies parameters (title, description, priority, status, or due_date) of an owned task.",
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "description": "Numeric ID of the task to update",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "example": "Review Calculus Limits"
+                  },
+                  "description": {
+                    "type": "string",
+                    "example": "Review limits, continuity, and differentiability"
+                  },
+                  "priority": {
+                    "type": "string",
+                    "enum": ["Low", "Medium", "High"]
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": ["Pending", "In Progress", "Completed"]
+                  },
+                  "due_date": {
+                    "type": "string",
+                    "format": "date",
+                    "nullable": true,
+                    "example": "2026-06-26"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Task updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Task"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete a Task",
+        "description": "Deletes the task specified by ID.",
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "description": "Numeric ID of the task to delete",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Task deleted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Task deleted successfully."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Enter your unique API token to access user-scoped endpoints."
+      }
+    },
+    "schemas": {
+      "StudySession": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "example": 12
+          },
+          "session_date": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-06-18T09:12:45.000Z"
+          },
+          "mood": {
+            "type": "integer",
+            "example": 4
+          },
+          "study_hours": {
+            "type": "number",
+            "example": 3.0
+          },
+          "sleep_hours": {
+            "type": "number",
+            "example": 7.5
+          },
+          "days_left": {
+            "type": "integer",
+            "example": 6
+          },
+          "subjects": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "example": ["Math", "Physics"]
+          },
+          "productivity_score": {
+            "type": "number",
+            "example": 80.0
+          },
+          "burnout_risk": {
+            "type": "string",
+            "example": "Low"
+          }
+        }
+      },
+      "StudyPlan": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "example": 3
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-06-18T05:30:00.000Z"
+          },
+          "mood": {
+            "type": "integer",
+            "example": 3
+          },
+          "study_hours": {
+            "type": "number",
+            "example": 4.0
+          },
+          "days_left": {
+            "type": "integer",
+            "example": 8
+          },
+          "subjects": {
+            "type": "string",
+            "example": "Chemistry, Biology"
+          },
+          "plan_layout": {
+            "type": "object",
+            "description": "Serialized dynamic planner structure return",
+            "example": {
+              "days_left": 8,
+              "mood": 3,
+              "study_hours": 4.0,
+              "schedule": [
+                {
+                  "time": "09:00 - 10:30",
+                  "activity": "Study Session 1: Chemistry"
+                },
+                {
+                  "time": "10:30 - 10:45",
+                  "activity": "Short Break"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "QuizResult": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "example": 5
+          },
+          "topics": {
+            "type": "string",
+            "example": "Quantum Mechanics"
+          },
+          "score": {
+            "type": "integer",
+            "example": 5
+          },
+          "total_questions": {
+            "type": "integer",
+            "example": 6
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-06-18T08:15:30.000Z"
+          },
+          "results_json": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "description": "Breakdown of questions, user choices, correctness, and explanations.",
+            "example": [
+              {
+                "question": "What is the photo-electric effect?",
+                "user": "Option A",
+                "correct": "Option A",
+                "is_correct": true,
+                "explanation": "Correct because light acts as particles (photons) ejecting electrons."
+              }
+            ]
+          }
+        }
+      },
+      "Task": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "example": 101
+          },
+          "title": {
+            "type": "string",
+            "example": "Review Calculus Limits"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "example": "Do textbook problems 4a, 4b, and 5"
+          },
+          "due_date": {
+            "type": "string",
+            "format": "date",
+            "nullable": true,
+            "example": "2026-06-25"
+          },
+          "priority": {
+            "type": "string",
+            "example": "High"
+          },
+          "status": {
+            "type": "string",
+            "example": "Pending"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-06-18T09:12:00.000Z"
+          }
+        }
+      }
+    },
+    "responses": {
+      "ValidationError": {
+        "description": "Validation failed due to bad format, boundary conditions, or constraints",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "error": {
+                  "type": "string",
+                  "example": "Invalid numeric types for mood, study_hours, sleep_hours, or days_left."
+                }
+              }
+            }
+          }
+        }
+      },
+      "UnauthorizedError": {
+        "description": "Request is unauthenticated or token is invalid",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "error": {
+                  "type": "string",
+                  "example": "Unauthorized. Please log in or provide a valid API token."
+                }
+              }
+            }
+          }
+        }
+      },
+      "NotFoundError": {
+        "description": "Requested resource was not found or is not owned by the user",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "error": {
+                  "type": "string",
+                  "example": "Task not found."
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
