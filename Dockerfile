@@ -44,5 +44,5 @@ USER appuser
 # Expose the port the app runs on
 EXPOSE 5000
 
-# Run with Gunicorn on startup
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "4", "--threads", "2", "--timeout", "60", "app:app"]
+# Run with Gunicorn on startup, binding dynamically to Render's exposed $PORT env var (falling back to 5000)
+CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT:-5000} --workers 4 --threads 2 --timeout 60 app:app"]
