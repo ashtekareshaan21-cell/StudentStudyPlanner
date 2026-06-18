@@ -5,6 +5,7 @@ import secrets
 import bcrypt
 import requests as http_requests
 import dotenv
+import html
 from datetime import datetime
 from functools import wraps
 from flask import Flask, render_template, request, session, abort, redirect, g, jsonify
@@ -104,8 +105,8 @@ def validate_csrf():
 def add_security_headers(response):
     response.headers['Content-Security-Policy'] = (
         "default-src 'self'; "
-        "script-src 'self'; "
-        "style-src 'self'; "
+        "script-src 'self' https://cdn.jsdelivr.net; "
+        "style-src 'self' 'unsafe-inline'; "
         "font-src 'self'; "
         "img-src 'self' data:; "
         "connect-src 'self' https://api.openai.com; "
@@ -416,13 +417,14 @@ def home():
     return render_template("home.html")
 
 @app.route('/register', methods=['GET', 'POST'])
+@limiter.limit("3 per minute")
 def register():
     if "user_id" in session:
         return redirect('/')
         
     if request.method == 'POST':
-        username = request.form.get("username", "").strip()
-        email = request.form.get("email", "").strip()
+        username = html.escape(request.form.get("username", "").strip())
+        email = html.escape(request.form.get("email", "").strip())
         password = request.form.get("password", "")
         confirm_password = request.form.get("confirm_password", "")
         
@@ -463,12 +465,13 @@ def register():
     return render_template("register.html")
 
 @app.route('/login', methods=['GET', 'POST'])
+@limiter.limit("5 per minute")
 def login():
     if "user_id" in session:
         return redirect('/')
         
     if request.method == 'POST':
-        username_or_email = request.form.get("username_or_email", "").strip()
+        username_or_email = html.escape(request.form.get("username_or_email", "").strip())
         password = request.form.get("password", "")
         
         if not username_or_email or not password:
@@ -509,7 +512,7 @@ def generate_plan():
     subjects_raw = request.form.get('subjects', 'General')
     sleep_hours = float(request.form.get('sleep_hours', 7))
 
-    subjects = [s.strip() for s in subjects_raw.split(',') if s.strip()]
+    subjects = [html.escape(s.strip()) for s in subjects_raw.split(',') if s.strip()]
     if not subjects:
         subjects = ['General']
 
@@ -767,11 +770,12 @@ def api_create_task():
     Create a new task for the authenticated user.
     """
     data = request.get_json() or {}
-    title = data.get("title", "").strip()
+    title = html.escape(data.get("title", "").strip())
     if not title:
         return jsonify({"error": "Task title is required."}), 400
 
-    description = data.get("description", "").strip() or None
+    desc_raw = data.get("description")
+    description = html.escape(desc_raw.strip()) if desc_raw and desc_raw.strip() else None
     priority = data.get("priority", "Medium").strip()
     if priority not in ["Low", "Medium", "High"]:
         return jsonify({"error": "Priority must be one of: Low, Medium, High."}), 400
@@ -814,13 +818,14 @@ def api_update_task(task_id):
 
     # Update fields if provided
     if "title" in data:
-        title = data["title"].strip()
+        title = html.escape(data["title"].strip())
         if not title:
             return jsonify({"error": "Task title cannot be empty."}), 400
         task.title = title
 
     if "description" in data:
-        task.description = data["description"].strip() or None
+        desc_raw = data["description"]
+        task.description = html.escape(desc_raw.strip()) if desc_raw and desc_raw.strip() else None
 
     if "priority" in data:
         priority = data["priority"].strip()
