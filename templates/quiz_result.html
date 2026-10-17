@@ -4,106 +4,186 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quiz Results - Smart Study Planner</title>
+    <title>Quiz Result — SmartStudyPlanner</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <style>
-        .result-container {
-            max-width: 800px;
-            margin: 40px auto;
-            padding: 30px;
-            background: white;
-            border-radius: var(--border-radius);
-            box-shadow: var(--box-shadow);
-            border: 1px solid var(--border-color);
-        }
-        .score-banner {
-            background: var(--success-color);
-            color: white;
-            text-align: center;
-            padding: 20px;
-            border-radius: var(--border-radius);
-            margin-bottom: 30px;
-        }
-        .score-banner h2 { margin: 0; font-size: 36px; font-weight: 700; }
-        .score-banner p { margin: 5px 0 0 0; font-size: 18px; opacity: 0.9; }
-        
-        .result-card {
-            margin-bottom: 20px;
-            padding: 20px;
-            border: 1px solid var(--border-color);
-            border-radius: var(--border-radius);
-            background: white;
-            box-shadow: var(--box-shadow);
-        }
-        .correct { border-left: 4px solid var(--success-color); }
-        .incorrect { border-left: 4px solid var(--danger-color); }
-        
-        .question-text { font-weight: 600; font-size: 16px; margin-bottom: 10px; color: var(--dark-color); }
-        .answer-row { margin-bottom: 5px; color: var(--text-color); }
-        .explanation { margin-top: 15px; font-style: italic; color: var(--gray-color); }
-    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        (function() {
+            const savedTheme = localStorage.getItem('smart_study_theme') || 'theme-light';
+            document.documentElement.className = savedTheme;
+        })();
+    </script>
 </head>
-<body>
-    {% if motivation_quote %}
-    <div class="motivation-banner">
-        <span class="quote-text">{{ motivation_quote }}</span>
-    </div>
-    {% endif %}
+<body class="theme-light">
+    <!-- Navbar matching Report Page 7 Bottom -->
     <nav class="navbar">
-        <div class="container">
-            <h1 class="logo">📚 Smart Study Planner</h1>
-             <ul class="nav-links">
-                <li><a href="/">Home</a></li>
-                {% if session.get('user_id') %}
-                    <li><a href="/planner">Start Planning</a></li>
-                    <li><a href="/history">History</a></li>
-                    <li><a href="/docs">API Docs</a></li>
-                    <li class="welcome-text" style="color: white; margin-left: 15px; font-weight: bold; display: inline-block;">Welcome, {{ session.username }}!</li>
-                    <li><a href="/logout" class="btn-logout" style="color: #ff4d4d; font-weight: bold; margin-left: 10px;">Logout</a></li>
-                {% else %}
-                    <li><a href="/docs">API Docs</a></li>
-                    <li><a href="/login" class="btn-login" style="font-weight: bold;">Login</a></li>
-                    <li><a href="/register" class="btn-register" style="font-weight: bold; margin-left: 10px;">Register</a></li>
-                {% endif %}
+        <div class="nav-inner">
+            <a href="/" class="brand-wrapper" style="text-decoration: none;">
+                <span class="smart-logo-dot"></span>
+                <span class="brand-title" style="letter-spacing: -0.5px;">SmartStudyPlanner</span>
+            </a>
+
+            <ul class="nav-menu">
+                <li><a href="/" class="nav-link">Home</a></li>
+                <li><a href="/planner" class="nav-link">Planner</a></li>
+                <li><a href="/quiz" class="nav-link active">New Quiz</a></li>
+                <li><a href="/history" class="nav-link">History</a></li>
             </ul>
+
+            <div class="nav-actions" style="display: flex; align-items: center; gap: 10px;">
+                <button type="button" class="theme-toggle-btn" id="themeToggleBtn" onclick="toggleTheme()" title="Toggle Theme">
+                    🌓 Theme
+                </button>
+                <a href="/quiz" class="btn-pill-primary" style="padding: 7px 16px; font-size: 0.84rem;">New Quiz</a>
+            </div>
         </div>
     </nav>
 
-    <div class="result-container">
-        <div class="score-banner" style="background: {% if score/total >= 0.7 %}var(--success-color){% elif score/total >= 0.4 %}var(--warning-color){% else %}var(--danger-color){% endif %}">
-            <h2>{{ score }} / {{ total }}</h2>
-            <p>Your Score</p>
+    <main style="max-width: 1080px; margin: 30px auto; padding: 0 20px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 24px;">
+            <div>
+                <h1 style="font-size: 1.85rem; font-weight: 800; color: var(--text-primary); margin-bottom: 4px;">
+                    Quiz Result: {{ session.get('quiz_topics', 'DBMS Using SQL') }}
+                </h1>
+                <div style="font-size: 0.85rem; color: var(--text-secondary);">
+                    Diagnostic evaluation based on Bloom's cognitive taxonomy.
+                </div>
+            </div>
+            <span class="bloom-badge-pill" style="background: var(--primary-subtle); color: var(--primary); border-color: var(--primary-border); font-size: 0.8rem;">
+                Source: {{ 'OPENAI API' if session.get('api_used') == 'openai' else 'FALLBACK' }}
+            </span>
         </div>
 
-        <h3>Detailed Review</h3>
-        
-        {% for r in results %}
-        <div class="result-card {% if r.is_correct %}correct{% else %}incorrect{% endif %}">
-            <div class="question-text">{{ loop.index }}. {{ r.question }}</div>
-            
-            <div class="answer-row">
-                <strong>Your Answer:</strong> 
-                <span style="color: {% if r.is_correct %}var(--success-color){% else %}var(--danger-color){% endif %}; font-weight: 500;">
-                    {{ r.user if r.user else 'No answer provided' }}
+        <!-- 2-Column Grid matching Report Page 7 Bottom -->
+        <div class="quiz-result-grid">
+            <!-- Left Card: Score Donut & Recommendation -->
+            <div class="score-summary-left-card">
+                <div style="font-size: 0.84rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 16px;">
+                    Score Assessment
+                </div>
+
+                <!-- SVG Donut Chart -->
+                <div class="svg-donut-container">
+                    <svg viewBox="0 0 100 100" style="width: 100%; height: 100%; transform: rotate(-90deg);">
+                        <circle cx="50" cy="50" r="40" stroke="var(--border-subtle)" stroke-width="9" fill="none" />
+                        <circle 
+                            cx="50" 
+                            cy="50" 
+                            r="40" 
+                            stroke="{% if score / total >= 0.7 %}#10B981{% elif score / total >= 0.4 %}#F59E0B{% else %}#EF4444{% endif %}" 
+                            stroke-width="9" 
+                            fill="none" 
+                            stroke-linecap="round"
+                            stroke-dasharray="251.3" 
+                            stroke-dashoffset="{{ 251.3 - (251.3 * (score / total)) }}" 
+                            style="transition: stroke-dashoffset 1s ease;"
+                        />
+                    </svg>
+                    <div class="donut-inner-stat">
+                        <div class="donut-score-text">{{ score }}/{{ total }}</div>
+                        <div class="donut-pct-text">{{ ((score / total) * 100)|round|int }}%</div>
+                    </div>
+                </div>
+
+                <!-- Status Badge -->
+                {% if score / total >= 0.7 %}
+                <span class="status-badge-pill status-badge-success">
+                    🌟 Excellent Mastery
                 </span>
+                <p style="font-size: 0.86rem; color: var(--text-secondary); line-height: 1.5; margin-bottom: 24px;">
+                    Outstanding performance! You have demonstrated solid conceptual grasp and application ability on this topic.
+                </p>
+                {% elif score / total >= 0.4 %}
+                <span class="status-badge-pill status-badge-needs-revision">
+                    ⚠️ Needs Revision
+                </span>
+                <p style="font-size: 0.86rem; color: var(--text-secondary); line-height: 1.5; margin-bottom: 24px;">
+                    You need reinforcement. Revisit core fundamentals, then attempt a new quiz after a short revision session.
+                </p>
+                {% else %}
+                <span class="status-badge-pill" style="background: rgba(239, 68, 68, 0.15); color: #DC2626; border: 1px solid rgba(239, 68, 68, 0.3);">
+                    ⚠️ Foundation Practice Needed
+                </span>
+                <p style="font-size: 0.86rem; color: var(--text-secondary); line-height: 1.5; margin-bottom: 24px;">
+                    Review the concept explanations on the right thoroughly before attempting higher-difficulty problems.
+                </p>
+                {% endif %}
+
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <a href="/quiz" class="btn-pill-primary" style="text-align: center; justify-content: center; width: 100%;">
+                        Generate New Quiz
+                    </a>
+                    <a href="/planner" class="btn-pill-outline" style="text-align: center; justify-content: center; width: 100%;">
+                        Back to Planner
+                    </a>
+                </div>
             </div>
-            
-            {% if not r.is_correct %}
-            <div class="answer-row">
-                <strong>Correct Answer:</strong> <span style="color: var(--success-color); font-weight: 500;">{{ r.correct }}</span>
-            </div>
-            {% endif %}
-            
-            <div class="explanation">
-                <strong>Explanation:</strong> {{ r.explanation }}
+
+            <!-- Right Card: Performance Summary Breakdown -->
+            <div class="performance-right-card">
+                <h3 style="font-size: 1.2rem; font-weight: 800; color: var(--text-primary); margin-bottom: 4px;">
+                    Performance summary
+                </h3>
+                <p style="font-size: 0.86rem; color: var(--text-secondary); margin-bottom: 20px;">
+                    Review mistakes + explanations to improve your understanding.
+                </p>
+
+                {% for r in results %}
+                <div class="review-item-card {% if r.is_correct %}is-correct{% else %}is-incorrect{% endif %}">
+                    <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px;">
+                        <span style="font-weight: 800; font-size: 0.95rem; color: var(--text-primary);">
+                            Q{{ loop.index }}. {{ r.question }}
+                        </span>
+                        <span style="font-size: 0.75rem; font-weight: 800; padding: 2px 8px; border-radius: var(--radius-full); {% if r.is_correct %}background: var(--emerald-subtle); color: var(--emerald-text);{% else %}background: var(--red-subtle); color: #DC2626;{% endif %}">
+                            {{ '✓ Correct' if r.is_correct else '✗ Incorrect' }}
+                        </span>
+                    </div>
+
+                    <div style="font-size: 0.88rem; margin-bottom: 4px; color: var(--text-secondary);">
+                        <strong>Your answer:</strong> 
+                        <span style="font-weight: 700; color: {% if r.is_correct %}#10B981{% else %}#EF4444{% endif %};">
+                            {{ r.user if r.user else 'None' }}
+                        </span>
+                    </div>
+
+                    {% if not r.is_correct %}
+                    <div style="font-size: 0.88rem; margin-bottom: 8px; color: var(--text-secondary);">
+                        <strong>Correct answer:</strong> 
+                        <span style="font-weight: 700; color: #10B981;">
+                            {{ r.correct }}
+                        </span>
+                    </div>
+                    {% endif %}
+
+                    <div style="font-size: 0.84rem; color: var(--text-muted); background: var(--bg-card); padding: 10px 12px; border-radius: 6px; border: 1px solid var(--border-subtle); margin-top: 8px;">
+                        💡 <strong>Explanation:</strong> {{ r.explanation }}
+                    </div>
+                </div>
+                {% endfor %}
             </div>
         </div>
-        {% endfor %}
-        
-        <div style="text-align: center; margin-top: 30px;">
-            <a href="/quiz" class="btn btn-primary" style="margin-right: 10px;">Try Another Topic</a>
-            <a href="/" class="btn btn-secondary">Back to Home</a>
-        </div>
-    </div>
+    </main>
+
+    <!-- Theme Switcher Script -->
+    <script>
+        function applyTheme(theme) {
+            document.body.className = theme;
+            localStorage.setItem('smart_study_theme', theme);
+            const btn = document.getElementById('themeToggleBtn');
+            if (btn) btn.innerHTML = theme === 'theme-dark' ? '☀️ Light' : '🌙 Dark';
+        }
+
+        function toggleTheme() {
+            const isDark = document.body.classList.contains('theme-dark');
+            applyTheme(isDark ? 'theme-light' : 'theme-dark');
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const saved = localStorage.getItem('smart_study_theme') || 'theme-light';
+            applyTheme(saved);
+        });
+    </script>
 </body>
 </html>

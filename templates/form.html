@@ -1,154 +1,563 @@
 <!-- templates/form.html -->
-<!-- Study planner form for user input -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Create Study Plan - Smart Study Planner</title>
+    <title>Planner — SmartStudyPlanner</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        (function() {
+            const savedTheme = localStorage.getItem('smart_study_theme') || 'theme-light';
+            document.documentElement.className = savedTheme;
+        })();
+    </script>
 </head>
-<body>
+<body class="theme-light">
+    <!-- Top Navigation (Report Page 5 Bottom) -->
     <nav class="navbar">
-        <div class="container">
-            <h1 class="logo">📚 Smart Study Planner</h1>
-            <ul class="nav-links">
-                <li><a href="/">Home</a></li>
-                {% if session.get('user_id') %}
-                    <li><a href="/planner">Start Planning</a></li>
-                    <li><a href="/tasks">Tasks</a></li>
-                    <li><a href="/history">History</a></li>
-                    <li><a href="/docs">API Docs</a></li>
-                    <li class="welcome-text" style="color: white; margin-left: 15px; font-weight: bold; display: inline-block;">Welcome, {{ session.username }}!</li>
-                    <li><a href="/logout" class="btn-logout" style="color: #ff4d4d; font-weight: bold; margin-left: 10px;">Logout</a></li>
-                {% else %}
-                    <li><a href="/docs">API Docs</a></li>
-                    <li><a href="/login" class="btn-login" style="font-weight: bold;">Login</a></li>
-                    <li><a href="/register" class="btn-register" style="font-weight: bold; margin-left: 10px;">Register</a></li>
-                {% endif %}
+        <div class="nav-inner">
+            <a href="/" class="brand-wrapper" style="text-decoration: none;">
+                <span class="smart-logo-dot"></span>
+                <span class="brand-title" style="letter-spacing: -0.5px;">SmartStudyPlanner</span>
+            </a>
+
+            <ul class="nav-menu">
+                <li><a href="/" class="nav-link">Home</a></li>
+                <li><a href="/planner" class="nav-link active">Planner</a></li>
+                <li><a href="/quiz" class="nav-link">AI Quiz</a></li>
+                <li><a href="/history" class="nav-link">History</a></li>
+                <li><a href="/tasks" class="nav-link">Tasks</a></li>
             </ul>
+
+            <div class="nav-actions" style="display: flex; align-items: center; gap: 10px;">
+                <button type="button" class="theme-toggle-btn" id="themeToggleBtn" onclick="toggleTheme()" title="Toggle Theme">
+                    🌓 Theme
+                </button>
+                {% if session.get('username') %}
+                <a href="/history" class="user-pill" title="{{ session.username }}">
+                    <div class="user-avatar-circle">{{ session.username[0]|upper }}</div>
+                    <span>{{ session.username }}</span>
+                </a>
+                <a href="/logout" style="color: #EF4444; font-size: 0.84rem; text-decoration: none; font-weight: 700; margin-left: 4px;" title="Logout">Exit</a>
+                {% else %}
+                <a href="/login" class="nav-link" style="padding: 6px 14px;">Login</a>
+                {% endif %}
+            </div>
         </div>
     </nav>
 
-    <div class="container">
-        <section class="form-section">
-            <h2>Create Your Study Plan</h2>
-            <p class="subtitle">Fill in the details below to get a personalized study plan.</p>
+    <!-- Main Planner Content -->
+    <main class="synapse-planner-container">
+        <div class="synapse-planner-grid">
+            <!-- Left Column: Form (Report Page 5 Bottom) -->
+            <section class="card" style="padding: 24px;">
+                <div style="margin-bottom: 20px;">
+                    <h2 style="font-size: 1.4rem; font-weight: 800; color: var(--text-primary); margin-bottom: 4px;">
+                        Generate your AI-powered study plan
+                    </h2>
+                    <p style="font-size: 0.85rem; color: var(--text-secondary);">
+                        Fill in a few inputs—mood, sleep, subjects, and study hours—and get a custom daily plan.
+                    </p>
+                </div>
 
-            <form method="POST" action="/generate-plan" class="study-form">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                
-                <!-- Mood Input -->
-                <div class="form-group">
-                    <label for="mood">Your Current Mood (1-5)</label>
-                    <div class="mood-selector">
-                        <div class="mood-option">
-                            <input type="radio" id="mood1" name="mood" value="1" required>
-                            <label for="mood1" class="mood-label">😢<span>Very Bad</span></label>
+                <form id="adaptivePlanForm" method="POST" action="/generate-plan">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <input type="hidden" id="selectedMood" name="mood" value="4">
+
+                    <!-- Subjects Container -->
+                    <div id="subjectList">
+                        <!-- Initial Subject Card -->
+                        <div class="subject-item-card" data-index="0">
+                            <div class="subject-top-row">
+                                <input 
+                                    type="text" 
+                                    class="subject-name-input" 
+                                    name="subject_name[]" 
+                                    placeholder="Subject name" 
+                                    value="Codex"
+                                    required
+                                >
+                                <button type="button" class="btn-subject-del" title="Delete subject" onclick="removeSubjectRow(this)">
+                                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <polyline points="3 6 5 6 21 6"></polyline>
+                                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                    </svg>
+                                </button>
+                            </div>
+
+                            <div class="subject-meta-row">
+                                <div class="days-pill-wrapper">
+                                    <input 
+                                        type="number" 
+                                        class="days-val-input" 
+                                        name="days_left[]" 
+                                        value="7" 
+                                        min="1" 
+                                        max="365"
+                                        required
+                                    >
+                                    <span class="days-pill-label">days left</span>
+                                </div>
+
+                                <select class="complexity-select" name="complexity[]">
+                                    <option value="1">Complexity 1 — Light</option>
+                                    <option value="2">Complexity 2 — Moderate</option>
+                                    <option value="3" selected>Complexity 3 — Solid</option>
+                                    <option value="4">Complexity 4 — Heavy</option>
+                                    <option value="5">Complexity 5 — Intense</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <input 
+                                    type="text" 
+                                    class="topics-input" 
+                                    name="topics[]" 
+                                    placeholder="Target topics (optional)"
+                                >
+                            </div>
                         </div>
-                        <div class="mood-option">
-                            <input type="radio" id="mood2" name="mood" value="2">
-                            <label for="mood2" class="mood-label">😕<span>Bad</span></label>
+                    </div>
+
+                    <!-- Add Subject Button -->
+                    <button type="button" class="btn-add-subject-row" id="addSubjectBtn" onclick="addSubjectRow()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
+                        Add subject
+                    </button>
+
+                    <!-- Quick Session Tuning (Mood, Sleep, Time) -->
+                    <div class="quick-params-card">
+                        <div class="params-header">Daily Context & Energy</div>
+                        
+                        <!-- Mood Row -->
+                        <div style="margin-bottom: 12px;">
+                            <div style="font-size: 0.78rem; color: #94A3B8; margin-bottom: 6px;">How are you feeling today?</div>
+                            <div class="mood-selector-row" style="grid-template-columns: repeat(5, 1fr); gap: 6px; margin-bottom: 0;">
+                                <div class="mood-btn" data-mood="1" onclick="selectMood(1, this)" title="Very Low Energy">
+                                    <span class="mood-emoji">😢</span>
+                                    <span class="mood-name">1</span>
+                                </div>
+                                <div class="mood-btn" data-mood="2" onclick="selectMood(2, this)" title="Low Energy">
+                                    <span class="mood-emoji">🙁</span>
+                                    <span class="mood-name">2</span>
+                                </div>
+                                <div class="mood-btn" data-mood="3" onclick="selectMood(3, this)" title="Neutral">
+                                    <span class="mood-emoji">😐</span>
+                                    <span class="mood-name">3</span>
+                                </div>
+                                <div class="mood-btn selected" data-mood="4" onclick="selectMood(4, this)" title="Good">
+                                    <span class="mood-emoji">🙂</span>
+                                    <span class="mood-name">4</span>
+                                </div>
+                                <div class="mood-btn" data-mood="5" onclick="selectMood(5, this)" title="Optimal">
+                                    <span class="mood-emoji">😄</span>
+                                    <span class="mood-name">5</span>
+                                </div>
+                            </div>
                         </div>
-                        <div class="mood-option">
-                            <input type="radio" id="mood3" name="mood" value="3" checked>
-                            <label for="mood3" class="mood-label">😐<span>Okay</span></label>
+
+                        <!-- Sleep & Time Row -->
+                        <div class="params-grid">
+                            <div class="input-block">
+                                <label style="font-size: 0.78rem; color: #94A3B8;">Sleep hours</label>
+                                <input 
+                                    type="number" 
+                                    class="form-control" 
+                                    name="sleep_hours" 
+                                    id="sleepHoursInput" 
+                                    value="7" 
+                                    step="0.5" 
+                                    min="2" 
+                                    max="14"
+                                    style="padding: 8px 12px; font-size: 0.9rem;"
+                                >
+                            </div>
+                            <div class="input-block">
+                                <label style="font-size: 0.78rem; color: #94A3B8;">Start time</label>
+                                <input 
+                                    type="time" 
+                                    class="form-control" 
+                                    name="start_time" 
+                                    id="startTimeInput" 
+                                    value="18:00"
+                                    style="padding: 8px 12px; font-size: 0.9rem;"
+                                >
+                            </div>
                         </div>
-                        <div class="mood-option">
-                            <input type="radio" id="mood4" name="mood" value="4">
-                            <label for="mood4" class="mood-label">🙂<span>Good</span></label>
+                    </div>
+
+                    <!-- Action Buttons matching Report Page 5 Bottom -->
+                    <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 14px;">
+                        <button type="submit" class="btn-generate-plan" id="generatePlanBtn">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                            </svg>
+                            Generate adaptive plan
+                        </button>
+
+                        <div style="display: flex; gap: 10px;">
+                            <button type="button" class="btn-pill-primary" style="flex: 1; padding: 11px; font-size: 0.88rem; justify-content: center;" onclick="document.getElementById('adaptivePlanForm').submit();">
+                                ⏱️ Open Result & Timer
+                            </button>
+                            <a href="/" class="btn-pill-outline" style="padding: 11px 18px; font-size: 0.88rem; justify-content: center;">
+                                Back
+                            </a>
                         </div>
-                        <div class="mood-option">
-                            <input type="radio" id="mood5" name="mood" value="5">
-                            <label for="mood5" class="mood-label">😄<span>Excellent</span></label>
+                    </div>
+                </form>
+            </section>
+
+            <!-- Right Column: Timeline & Recent Plans -->
+            <section>
+                <!-- Adaptive Timeline -->
+                <div id="timelineContainer">
+                    <div id="timelineList" class="schedule-timeline">
+                        {% for block in active_blocks %}
+                        <div class="timeline-card-item {% if block.type == 'focus' %}accent-focus{% elif block.type == 'rest' %}accent-rest{% else %}accent-break{% endif %}">
+                            <div class="timeline-time">{{ block.time_range }}</div>
+                            <div class="timeline-details">
+                                <div class="timeline-title">{{ block.title }}</div>
+                                <div class="timeline-sub">{{ block.sub }}</div>
+                            </div>
                         </div>
+                        {% endfor %}
                     </div>
                 </div>
 
-                <!-- Study Hours -->
-                <div class="form-group">
-                    <label for="study_hours">Study Hours Available (0-24)</label>
-                    <input 
-                        type="number" 
-                        id="study_hours" 
-                        name="study_hours" 
-                        min="0" 
-                        max="24" 
-                        step="0.5" 
-                        placeholder="e.g., 4.5"
-                        required
-                    >
-                    <small>How many hours can you study today?</small>
-                </div>
+                <!-- Recent Plans Section -->
+                <div class="recent-plans-box">
+                    <h3 class="recent-plans-heading">Recent plans</h3>
 
-                <!-- Days Left -->
-                <div class="form-group">
-                    <label for="days_left">Days Until Exam</label>
-                    <input 
-                        type="number" 
-                        id="days_left" 
-                        name="days_left" 
-                        min="1" 
-                        max="365" 
-                        placeholder="e.g., 7"
-                        required
-                    >
-                    <small>How many days until your exam?</small>
+                    <div id="recentPlansList" class="recent-plans-list">
+                        {% for plan in recent_plans %}
+                        <div 
+                            class="recent-plan-entry {% if loop.first and active_plan_id == plan.id %}active-plan{% endif %}" 
+                            data-plan-id="{{ plan.id }}"
+                            onclick="loadRecentPlan('{{ plan.id }}', this)"
+                        >
+                            <div class="recent-plan-main">
+                                <div class="recent-plan-meta">
+                                    <span>{{ plan.date_formatted }}</span>
+                                    <span>·</span>
+                                    <span>{{ plan.mood_emoji }} mood</span>
+                                    <span>·</span>
+                                    <span>{{ plan.sleep_hours }}h sleep</span>
+                                </div>
+                                <div class="recent-plan-subtext">
+                                    {{ plan.subjects_display }} — risk {{ plan.risk_index }}/100
+                                </div>
+                            </div>
+                            <button 
+                                type="button" 
+                                class="btn-delete-recent-plan" 
+                                title="Delete plan" 
+                                onclick="deleteRecentPlan(event, '{{ plan.id }}', this)"
+                            >
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <polyline points="3 6 5 6 21 6"></polyline>
+                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                </svg>
+                            </button>
+                        </div>
+                        {% else %}
+                        <div style="color: #64748B; font-size: 0.9rem; padding: 12px 0;">
+                            No recent plans generated yet. Click "Generate adaptive plan" above!
+                        </div>
+                        {% endfor %}
+                    </div>
                 </div>
+            </section>
+        </div>
+    </main>
 
-                <!-- Subjects -->
-                <div class="form-group">
-                    <label for="subjects">Subjects (comma-separated)</label>
+    <!-- Client-side Interactions -->
+    <script>
+        // Store recent plans in-memory cache for fast switching
+        const plansCache = {};
+        {% for plan in recent_plans %}
+            plansCache["{{ plan.id }}"] = {{ plan.plan_details|tojson }};
+        {% endfor %}
+
+        // 1. Mood Selection
+        function selectMood(moodValue, element) {
+            document.querySelectorAll('.mood-btn').forEach(btn => btn.classList.remove('selected'));
+            element.classList.add('selected');
+            document.getElementById('selectedMood').value = moodValue;
+        }
+
+        // 2. Add New Subject Row
+        function addSubjectRow() {
+            const list = document.getElementById('subjectList');
+            const newIndex = list.children.length;
+            const card = document.createElement('div');
+            card.className = 'subject-item-card';
+            card.dataset.index = newIndex;
+            card.innerHTML = `
+                <div class="subject-top-row">
                     <input 
                         type="text" 
-                        id="subjects" 
-                        name="subjects" 
-                        placeholder="e.g., Math, Physics, Chemistry"
+                        class="subject-name-input" 
+                        name="subject_name[]" 
+                        placeholder="Subject name" 
                         required
                     >
-                    <small>List all subjects you need to study (separated by commas)</small>
+                    <button type="button" class="btn-subject-del" title="Delete subject" onclick="removeSubjectRow(this)">
+                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="3 6 5 6 21 6"></polyline>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                        </svg>
+                    </button>
                 </div>
-
-                <!-- Sleep Hours -->
-                <div class="form-group">
-                    <label for="sleep_hours">Last Night's Sleep Hours</label>
+                <div class="subject-meta-row">
+                    <div class="days-pill-wrapper">
+                        <input 
+                            type="number" 
+                            class="days-val-input" 
+                            name="days_left[]" 
+                            value="7" 
+                            min="1" 
+                            max="365"
+                            required
+                        >
+                        <span class="days-pill-label">days left</span>
+                    </div>
+                    <select class="complexity-select" name="complexity[]">
+                        <option value="1">Complexity 1 — Light</option>
+                        <option value="2">Complexity 2 — Moderate</option>
+                        <option value="3" selected>Complexity 3 — Solid</option>
+                        <option value="4">Complexity 4 — Heavy</option>
+                        <option value="5">Complexity 5 — Intense</option>
+                    </select>
+                </div>
+                <div>
                     <input 
-                        type="number" 
-                        id="sleep_hours" 
-                        name="sleep_hours" 
-                        min="0" 
-                        max="24" 
-                        step="0.5" 
-                        placeholder="e.g., 7"
-                        required
+                        type="text" 
+                        class="topics-input" 
+                        name="topics[]" 
+                        placeholder="Target topics (optional)"
                     >
-                    <small>How many hours did you sleep last night? (Ideal: 7-8 hours)</small>
                 </div>
+            `;
+            list.appendChild(card);
+            card.querySelector('.subject-name-input').focus();
+        }
 
-                <!-- Submit Button -->
-                <div class="form-actions">
-                    <button type="submit" class="btn btn-primary btn-large">Generate My Study Plan</button>
-                    <a href="/" class="btn btn-secondary">Cancel</a>
-                </div>
-            </form>
+        // 3. Remove Subject Row
+        function removeSubjectRow(btn) {
+            const list = document.getElementById('subjectList');
+            if (list.children.length > 1) {
+                const card = btn.closest('.subject-item-card');
+                card.remove();
+            } else {
+                const card = btn.closest('.subject-item-card');
+                card.querySelector('.subject-name-input').value = '';
+                card.querySelector('.topics-input').value = '';
+            }
+        }
 
-            <!-- Example Section -->
-            <div class="example-section">
-                <h3>Example Input</h3>
-                <p>To see how the planner works, try this:</p>
-                <ul>
-                    <li>Mood: Good (4)</li>
-                    <li>Study Hours: 5</li>
-                    <li>Days Until Exam: 7</li>
-                    <li>Subjects: Math, Physics, Chemistry</li>
-                    <li>Sleep Hours: 6</li>
-                </ul>
-            </div>
-        </section>
-    </div>
+        // 4. Render Timeline Blocks
+        function renderTimeline(blocks) {
+            const container = document.getElementById('timelineList');
+            if (!blocks || blocks.length === 0) return;
 
-    <footer>
-        <p>&copy; 2026 Smart Study Planner | Created with Python & Flask</p>
-    </footer>
+            container.innerHTML = '';
+            blocks.forEach(block => {
+                const item = document.createElement('div');
+                let accentClass = 'accent-break';
+                if (block.type === 'focus') accentClass = 'accent-focus';
+                else if (block.type === 'rest') accentClass = 'accent-rest';
+
+                item.className = `timeline-card-item ${accentClass}`;
+                item.innerHTML = `
+                    <div class="timeline-time">${block.time_range}</div>
+                    <div class="timeline-details">
+                        <div class="timeline-title">${block.title}</div>
+                        <div class="timeline-sub">${block.sub}</div>
+                    </div>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        // 5. Load Recent Plan into Timeline
+        async function loadRecentPlan(planId, cardElement) {
+            document.querySelectorAll('.recent-plan-entry').forEach(el => el.classList.remove('active-plan'));
+            if (cardElement) cardElement.classList.add('active-plan');
+
+            if (plansCache[planId] && plansCache[planId].blocks) {
+                renderTimeline(plansCache[planId].blocks);
+                return;
+            }
+
+            try {
+                const res = await fetch(`/api/v1/plans/${planId}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    const details = typeof data.plan_details === 'string' ? JSON.parse(data.plan_details) : data.plan_details;
+                    plansCache[planId] = details;
+                    if (details && details.blocks) {
+                        renderTimeline(details.blocks);
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to load plan details:', err);
+            }
+        }
+
+        // 6. Delete Recent Plan
+        async function deleteRecentPlan(event, planId, btn) {
+            event.stopPropagation();
+            const entry = btn.closest('.recent-plan-entry');
+
+            entry.style.opacity = '0.4';
+            try {
+                const res = await fetch(`/api/v1/plans/${planId}`, {
+                    method: 'DELETE'
+                });
+                if (res.ok) {
+                    delete plansCache[planId];
+                    entry.remove();
+                    const list = document.getElementById('recentPlansList');
+                    if (list.children.length === 0) {
+                        list.innerHTML = `<div style="color: #64748B; font-size: 0.9rem; padding: 12px 0;">No recent plans generated yet. Click "Generate adaptive plan" above!</div>`;
+                    }
+                } else {
+                    entry.style.opacity = '1';
+                }
+            } catch (err) {
+                console.error('Failed to delete plan:', err);
+                entry.style.opacity = '1';
+            }
+        }
+
+        // 7. Handle AJAX Plan Generation
+        document.getElementById('adaptivePlanForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const submitBtn = document.getElementById('generatePlanBtn');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = `<span>⏳</span> Generating adaptive plan...`;
+
+            // Gather subjects
+            const subjectCards = document.querySelectorAll('.subject-item-card');
+            const subjects = [];
+            subjectCards.forEach(card => {
+                const name = card.querySelector('.subject-name-input').value.trim();
+                const days = parseInt(card.querySelector('.days-val-input').value) || 7;
+                const complexity = parseInt(card.querySelector('.complexity-select').value) || 3;
+                const topics = card.querySelector('.topics-input').value.trim();
+                if (name) {
+                    subjects.push({ name, days_left: days, complexity, topics });
+                }
+            });
+
+            if (subjects.length === 0) {
+                subjects.push({ name: 'Codex', days_left: 7, complexity: 3, topics: '' });
+            }
+
+            const payload = {
+                subjects: subjects,
+                mood: parseInt(document.getElementById('selectedMood').value) || 4,
+                sleep_hours: parseFloat(document.getElementById('sleepHoursInput').value) || 7.0,
+                start_time: document.getElementById('startTimeInput').value || '18:00',
+                study_hours: 5.0,
+                csrf_token: '{{ csrf_token }}'
+            };
+
+            try {
+                const response = await fetch('/generate-plan', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.blocks) {
+                        // Render timeline immediately
+                        renderTimeline(data.blocks);
+
+                        // Cache plan blocks
+                        if (data.plan_id) {
+                            plansCache[data.plan_id] = { blocks: data.blocks, risk_index: data.risk_index };
+                        }
+
+                        // Prepend new entry to Recent Plans list
+                        const list = document.getElementById('recentPlansList');
+                        const emptyNotice = list.querySelector('div[style*="color: #64748B"]');
+                        if (emptyNotice) emptyNotice.remove();
+
+                        document.querySelectorAll('.recent-plan-entry').forEach(el => el.classList.remove('active-plan'));
+
+                        const newEntry = document.createElement('div');
+                        newEntry.className = 'recent-plan-entry active-plan';
+                        newEntry.dataset.planId = data.plan_id;
+                        newEntry.onclick = function() { loadRecentPlan(data.plan_id, newEntry); };
+                        newEntry.innerHTML = `
+                            <div class="recent-plan-main">
+                                <div class="recent-plan-meta">
+                                    <span>${data.date_formatted}</span>
+                                    <span>·</span>
+                                    <span>${data.mood_emoji} mood</span>
+                                    <span>·</span>
+                                    <span>${data.sleep_hours}h sleep</span>
+                                </div>
+                                <div class="recent-plan-subtext">
+                                    ${data.subjects_display} — risk ${data.risk_index}/100
+                                </div>
+                            </div>
+                            <button 
+                                type="button" 
+                                class="btn-delete-recent-plan" 
+                                title="Delete plan" 
+                                onclick="deleteRecentPlan(event, '${data.plan_id}', this)"
+                            >
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <polyline points="3 6 5 6 21 6"></polyline>
+                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                </svg>
+                            </button>
+                        `;
+                        list.prepend(newEntry);
+                    }
+                } else {
+                    console.error('Failed to generate adaptive plan.');
+                }
+            } catch (err) {
+                console.error('Error during generation:', err);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+            }
+        });
+        // Theme Switcher Logic
+        function applyTheme(theme) {
+            document.body.className = theme;
+            localStorage.setItem('smart_study_theme', theme);
+            const btn = document.getElementById('themeToggleBtn');
+            if (btn) btn.innerHTML = theme === 'theme-dark' ? '☀️ Light' : '🌙 Dark';
+        }
+
+        function toggleTheme() {
+            const isDark = document.body.classList.contains('theme-dark');
+            applyTheme(isDark ? 'theme-light' : 'theme-dark');
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const saved = localStorage.getItem('smart_study_theme') || 'theme-light';
+            applyTheme(saved);
+        });
+    </script>
 </body>
 </html>

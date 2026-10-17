@@ -92,7 +92,23 @@ class TestStudyPlanner(unittest.TestCase):
         self.assertIn('productivity_score', plan)
         self.assertIn('burnout_analysis', plan)
         self.assertIn('time_allocation', plan)
+        self.assertIn('blocks', plan)
         self.assertEqual(plan['total_study_hours'], 4.0)
+
+    def test_adaptive_schedule_blocks(self):
+        from study_planner import generate_schedule_blocks, calculate_risk_index
+        sched = generate_schedule_blocks(start_time="18:00", subjects=["Codex"], study_hours=5.0, mood=4, sleep_hours=7.0)
+        self.assertEqual(len(sched['blocks']), 8)
+        self.assertEqual(sched['blocks'][0]['title'], 'Deep work — Codex')
+        self.assertEqual(sched['blocks'][0]['accent'], 'green')
+        self.assertEqual(sched['blocks'][1]['accent'], 'cyan')
+        self.assertEqual(sched['blocks'][3]['accent'], 'orange')
+
+        # Test risk index calibrations
+        self.assertEqual(calculate_risk_index(5.0, 7.0, 4), 49)
+        self.assertEqual(calculate_risk_index(5.0, 6.5, 2), 67)
+        self.assertEqual(calculate_risk_index(5.0, 6.0, 3), 63)
+        self.assertEqual(calculate_risk_index(5.0, 4.0, 2), 97)
 
 if __name__ == '__main__':
     unittest.main()

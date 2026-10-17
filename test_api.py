@@ -191,6 +191,38 @@ class TestRestAPI(unittest.TestCase):
         self.assertEqual(len(data), 1)
         self.assertEqual(data[0]["plan_details"]["hours_per_day"], 2.0)
 
+    def test_get_and_delete_single_plan_via_token(self):
+        plan_row = StudyPlan(
+            user_id=self.user.id,
+            days_left=5,
+            subjects="Codex",
+            study_hours=5.0,
+            sleep_hours=7.0,
+            mood=4,
+            productivity_score=80.0,
+            burnout_risk="Low",
+            plan_details=json.dumps({"blocks": [{"title": "Deep work — Codex"}]})
+        )
+        db.session.add(plan_row)
+        db.session.commit()
+
+        headers = {"Authorization": f"Bearer {self.test_token}"}
+        
+        # Test GET single plan
+        resp = self.client.get(f"/api/v1/plans/{plan_row.id}", headers=headers)
+        self.assertEqual(resp.status_code, 200)
+        data = json.loads(resp.data)
+        self.assertEqual(data["subjects"], ["Codex"])
+
+        # Test DELETE single plan
+        del_resp = self.client.delete(f"/api/v1/plans/{plan_row.id}", headers=headers)
+        self.assertEqual(del_resp.status_code, 200)
+        self.assertIn("deleted successfully", json.loads(del_resp.data)["message"])
+
+        # Confirm 404 after deletion
+        get_again = self.client.get(f"/api/v1/plans/{plan_row.id}", headers=headers)
+        self.assertEqual(get_again.status_code, 404)
+
     def test_get_quiz_results_via_token(self):
         quiz_row = QuizResult(
             user_id=self.user.id,

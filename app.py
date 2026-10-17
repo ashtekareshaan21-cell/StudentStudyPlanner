@@ -96,7 +96,11 @@ def validate_csrf():
         return
         
     if request.method == "POST":
-        token = request.form.get("csrf_token")
+        token = (
+            request.form.get("csrf_token") or 
+            request.headers.get("X-CSRFToken") or 
+            (request.get_json(silent=True) or {}).get("csrf_token")
+        )
         if not token or token != session.get("csrf_token"):
             return "CSRF Token missing or invalid. Action blocked.", 400
 
@@ -501,38 +505,172 @@ def logout():
 @app.route('/planner')
 @login_required
 def planner():
-    return render_template('form.html')
+    plans_query = StudyPlan.query.filter_by(user_id=session["user_id"]).order_by(StudyPlan.id.desc()).limit(15).all()
+    
+    recent_plans = []
+    mood_emoji_map = {1: "😢", 2: "🙁", 3: "😐", 4: "🙂", 5: "😄"}
+    
+    from study_planner import generate_schedule_blocks, calculate_risk_index
+    
+    for p in plans_query:
+        details = {}
+        if p.plan_details:
+            try:
+                details = json.loads(p.plan_details)
+            except Exception:
+                details = {}
+                
+        risk_index = details.get("risk_index")
+        if risk_index is None:
+            risk_index = calculate_risk_index(p.study_hours, p.sleep_hours, p.mood)
+            
+        subj_list = [s.strip() for s in p.subjects.split(";") if s.strip()]
+        recent_plans.append({
+            "id": p.id,
+            "date_formatted": p.created_at.strftime("%d %b, %H:%M") if p.created_at else "Recent",
+            "mood": p.mood,
+            "mood_emoji": mood_emoji_map.get(p.mood, "😐"),
+            "sleep_hours": f"{p.sleep_hours:g}",
+            "study_hours": p.study_hours,
+            "subjects_display": ", ".join(subj_list) if subj_list else "General",
+            "risk_index": risk_index,
+            "plan_details": details
+        })
+    
+    # Active blocks for right-side timeline
+    active_blocks = []
+    active_plan_id = None
+    if recent_plans and recent_plans[0].get("plan_details", {}).get("blocks"):
+        active_blocks = recent_plans[0]["plan_details"]["blocks"]
+        active_plan_id = recent_plans[0]["id"]
+    else:
+        default_schedule = generate_schedule_blocks(start_time="18:00", subjects=["Codex"], study_hours=5.0, mood=4, sleep_hours=7.0)
+        active_blocks = default_schedule["blocks"]
+
+    return render_template(
+        'form.html',
+        recent_plans=recent_plans,
+        active_blocks=active_blocks,
+        active_plan_id=active_plan_id
+    )
 
 @app.route('/generate-plan', methods=['POST'])
 @login_required
-@limiter.limit("10 per minute")
+@limiter.limit("30 per minute")
 def generate_plan():
-    mood = int(request.form.get('mood', 3))
-    study_hours = float(request.form.get('study_hours', 2))
-    days_left = int(request.form.get('days_left', 7))
-    subjects_raw = request.form.get('subjects', 'General')
-    sleep_hours = float(request.form.get('sleep_hours', 7))
+    is_json = request.is_json or request.headers.get("Content-Type") == "application/json"
+    data = request.get_json(silent=True) or {} if is_json else request.form
 
-    subjects = [html.escape(s.strip()) for s in subjects_raw.split(',') if s.strip()]
-    if not subjects:
-        subjects = ['General']
+    # 1. Parse parameters
+    try:
+        mood = int(data.get('mood', 3))
+    except (ValueError, TypeError):
+        mood = 3
 
-    raw_plan = generate_study_plan(mood, study_hours, days_left, subjects, sleep_hours)
+    try:
+        study_hours = float(data.get('study_hours', 5.0))
+    except (ValueError, TypeError):
+        study_hours = 5.0
+
+    try:
+        sleep_hours = float(data.get('sleep_hours', 7.0))
+    except (ValueError, TypeError):
+        sleep_hours = 7.0
+
+    start_time = data.get('start_time', '18:00')
+
+    # 2. Parse subjects
+    subject_dicts = []
+    subject_names = []
+    days_left_val = 7
+
+    if is_json and "subjects" in data and isinstance(data["subjects"], list):
+        for s in data["subjects"]:
+            if isinstance(s, dict):
+                s_name = html.escape(str(s.get("name", "")).strip())
+                if s_name:
+                    d_left = int(s.get("days_left", 7))
+                    c_level = int(s.get("complexity", 3))
+                    topics = html.escape(str(s.get("topics", "")).strip())
+                    subject_dicts.append({
+                        "name": s_name,
+                        "days_left": d_left,
+                        "complexity": c_level,
+                        "topics": topics
+                    })
+                    subject_names.append(s_name)
+                    days_left_val = d_left
+            elif isinstance(s, str) and s.strip():
+                name = html.escape(s.strip())
+                subject_dicts.append({"name": name, "days_left": 7, "complexity": 3, "topics": ""})
+                subject_names.append(name)
+    else:
+        names = request.form.getlist('subject_name[]') or request.form.getlist('subjects[]')
+        days = request.form.getlist('days_left[]')
+        complexities = request.form.getlist('complexity[]')
+        topics_list = request.form.getlist('topics[]')
+
+        if names:
+            for i, n in enumerate(names):
+                cleaned_name = html.escape(n.strip())
+                if cleaned_name:
+                    d = int(days[i]) if i < len(days) and days[i].isdigit() else 7
+                    c = int(complexities[i]) if i < len(complexities) and complexities[i].isdigit() else 3
+                    top = html.escape(topics_list[i].strip()) if i < len(topics_list) else ""
+                    subject_dicts.append({
+                        "name": cleaned_name,
+                        "days_left": d,
+                        "complexity": c,
+                        "topics": top
+                    })
+                    subject_names.append(cleaned_name)
+                    days_left_val = d
+
+        if not subject_names:
+            subjects_raw = data.get('subjects', 'Codex')
+            subject_names = [html.escape(s.strip()) for s in str(subjects_raw).split(',') if s.strip()]
+            for sn in subject_names:
+                subject_dicts.append({"name": sn, "days_left": int(data.get('days_left', 7)), "complexity": 3, "topics": ""})
+
+    if not subject_names:
+        subject_names = ['Codex']
+        subject_dicts = [{"name": "Codex", "days_left": 7, "complexity": 3, "topics": ""}]
+
+    # 3. Generate adaptive plan
+    from study_planner import generate_schedule_blocks, calculate_risk_index
+    raw_plan = generate_study_plan(mood, study_hours, days_left_val, subject_names, sleep_hours)
+    
+    # Generate the schedule timeline with subject rotation and topics
+    schedule_info = generate_schedule_blocks(
+        start_time=start_time,
+        subjects=subject_dicts,
+        study_hours=study_hours,
+        mood=mood,
+        sleep_hours=sleep_hours
+    )
+    raw_plan["schedule"] = schedule_info
+    raw_plan["risk_index"] = schedule_info["risk_index"]
+    raw_plan["blocks"] = schedule_info["blocks"]
+
     plan = format_study_plan_for_display(raw_plan)
+    plan["blocks"] = schedule_info["blocks"]
+    plan["risk_index"] = schedule_info["risk_index"]
+    plan["subjects_data"] = subject_dicts
 
-    # Save session with associated user ID
+    # Save session
     save_study_session(
-        session["user_id"], mood, study_hours, sleep_hours, days_left, subjects,
+        session["user_id"], mood, study_hours, sleep_hours, days_left_val, subject_names,
         raw_plan['productivity_score'],
         raw_plan['burnout_analysis']['risk_level']
     )
 
     # Save study plan details in the database
+    new_plan = None
     try:
         new_plan = StudyPlan(
             user_id=session["user_id"],
-            days_left=days_left,
-            subjects=";".join(subjects),
+            days_left=days_left_val,
+            subjects=";".join(subject_names),
             study_hours=study_hours,
             sleep_hours=sleep_hours,
             mood=mood,
@@ -546,14 +684,31 @@ def generate_plan():
         db.session.rollback()
         print(f"[ERROR] Failed to save study plan to database: {e}")
 
+    # Return JSON response for AJAX requests
+    if is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        mood_emoji_map = {1: "😢", 2: "🙁", 3: "😐", 4: "🙂", 5: "😄"}
+        return jsonify({
+            "success": True,
+            "plan_id": new_plan.id if new_plan else None,
+            "date_formatted": new_plan.created_at.strftime("%d %b, %H:%M") if (new_plan and new_plan.created_at) else "Just now",
+            "mood": mood,
+            "mood_emoji": mood_emoji_map.get(mood, "😐"),
+            "sleep_hours": f"{sleep_hours:g}",
+            "study_hours": study_hours,
+            "subjects_display": ", ".join(subject_names),
+            "risk_index": schedule_info["risk_index"],
+            "blocks": schedule_info["blocks"]
+        })
+
     return render_template(
         'result.html',
         plan=plan,
-        subjects=subjects,
-        study_hours=study_hours,
         mood=mood,
+        study_hours=study_hours,
+        days_left=days_left_val,
         sleep_hours=sleep_hours,
-        days_left=days_left
+        subjects=subject_names,
+        raw_plan=raw_plan
     )
 
 
@@ -734,6 +889,34 @@ def api_get_plans():
     """
     plans = StudyPlan.query.filter_by(user_id=g.current_user.id).order_by(StudyPlan.id.asc()).all()
     return jsonify([p.to_dict() for p in plans])
+
+@app.route('/api/v1/plans/<int:plan_id>', methods=['GET'])
+@api_login_required
+def api_get_single_plan(plan_id):
+    """
+    Get a specific study plan by ID for the authenticated user.
+    """
+    plan = StudyPlan.query.filter_by(id=plan_id, user_id=g.current_user.id).first()
+    if not plan:
+        return jsonify({"error": "Plan not found."}), 404
+    return jsonify(plan.to_dict())
+
+@app.route('/api/v1/plans/<int:plan_id>', methods=['DELETE'])
+@api_login_required
+def api_delete_plan(plan_id):
+    """
+    Delete a study plan by ID for the authenticated user.
+    """
+    plan = StudyPlan.query.filter_by(id=plan_id, user_id=g.current_user.id).first()
+    if not plan:
+        return jsonify({"error": "Plan not found."}), 404
+    try:
+        db.session.delete(plan)
+        db.session.commit()
+        return jsonify({"message": "Plan deleted successfully."})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": f"Failed to delete plan: {str(e)}"}), 500
 
 @app.route('/api/v1/quiz-results', methods=['GET'])
 @api_login_required

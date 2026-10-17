@@ -4,108 +4,136 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Take Quiz - Smart Study Planner</title>
+    <title>AI Quiz — SmartStudyPlanner</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <style>
-        .quiz-container {
-            max-width: 800px;
-            margin: 40px auto;
-            padding: 30px;
-            background: white;
-            border-radius: var(--border-radius);
-            box-shadow: var(--box-shadow);
-            border: 1px solid var(--border-color);
-        }
-        .question-card {
-            margin-bottom: 30px;
-            padding-bottom: 20px;
-            border-bottom: 1px solid var(--border-color);
-        }
-        .question-title {
-            font-size: 18px;
-            margin-bottom: 15px;
-            font-weight: 600;
-            color: var(--dark-color);
-        }
-        .badge {
-            background: var(--light-color);
-            color: var(--primary-color);
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            margin-left: 10px;
-            border: 1px solid var(--border-color);
-        }
-        .options label {
-            display: block;
-            margin-bottom: 10px;
-            padding: 10px;
-            border: 1px solid var(--border-color);
-            border-radius: var(--border-radius);
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-        .options label:hover {
-            background: var(--light-color);
-            border-color: var(--primary-color);
-        }
-    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        (function() {
+            const savedTheme = localStorage.getItem('smart_study_theme') || 'theme-light';
+            document.documentElement.className = savedTheme;
+        })();
+    </script>
 </head>
-<body>
-    {% if motivation_quote %}
-    <div class="motivation-banner">
-        <span class="quote-text">{{ motivation_quote }}</span>
-    </div>
-    {% endif %}
+<body class="theme-light">
+    <!-- Navbar matching Report Page 7 Top -->
     <nav class="navbar">
-        <div class="container">
-            <h1 class="logo">📚 Smart Study Planner</h1>
-            <ul class="nav-links">
-                <li><a href="/">Home</a></li>
-                {% if session.get('user_id') %}
-                    <li><a href="/planner">Start Planning</a></li>
-                    <li><a href="/history">History</a></li>
-                    <li><a href="/docs">API Docs</a></li>
-                    <li class="welcome-text" style="color: white; margin-left: 15px; font-weight: bold; display: inline-block;">Welcome, {{ session.username }}!</li>
-                    <li><a href="/logout" class="btn-logout" style="color: #ff4d4d; font-weight: bold; margin-left: 10px;">Logout</a></li>
-                {% else %}
-                    <li><a href="/docs">API Docs</a></li>
-                    <li><a href="/login" class="btn-login" style="font-weight: bold;">Login</a></li>
-                    <li><a href="/register" class="btn-register" style="font-weight: bold; margin-left: 10px;">Register</a></li>
-                {% endif %}
+        <div class="nav-inner">
+            <a href="/" class="brand-wrapper" style="text-decoration: none;">
+                <span class="smart-logo-dot"></span>
+                <span class="brand-title" style="letter-spacing: -0.5px;">SmartStudyPlanner</span>
+            </a>
+
+            <ul class="nav-menu">
+                <li><a href="/" class="nav-link">Home</a></li>
+                <li><a href="/planner" class="nav-link">Planner</a></li>
+                <li><a href="/quiz" class="nav-link active">New Quiz</a></li>
+                <li><a href="/history" class="nav-link">History</a></li>
             </ul>
+
+            <div class="nav-actions" style="display: flex; align-items: center; gap: 10px;">
+                <button type="button" class="theme-toggle-btn" id="themeToggleBtn" onclick="toggleTheme()" title="Toggle Theme">
+                    🌓 Theme
+                </button>
+                <a href="/quiz" class="btn-pill-outline" style="padding: 7px 16px; font-size: 0.84rem;">New Quiz</a>
+            </div>
         </div>
     </nav>
 
-    <div class="quiz-container">
-        <h2>Your AI Generated Quiz</h2>
-        {% if api_used == "fallback" %}
-        <div style="background: #fff3cd; color: #856404; padding: 15px; margin-bottom: 20px; border-radius: 5px;">
-            ⚠️ <strong>Notice:</strong> We couldn't connect to the AI service, so we're providing a fallback quiz.
-        </div>
-        {% endif %}
+    <main style="padding: 0 20px 40px;">
+        <!-- Top Status Bar (Report Page 7 Top) -->
+        <div class="quiz-top-status-bar">
+            <div class="answered-counter-pill" id="counterPill">
+                <span id="answeredCount">0</span>/{{ questions|length }} answered
+            </div>
 
-        <form method="POST" action="/submit-quiz">
+            <div class="bloom-badge-group">
+                <span class="bloom-badge-pill" style="border-color: #6366F1; color: #6366F1;">Remember ×2</span>
+                <span class="bloom-badge-pill" style="border-color: #10B981; color: #10B981;">Understand ×2</span>
+                <span class="bloom-badge-pill" style="border-color: #F59E0B; color: #F59E0B;">Apply ×2</span>
+            </div>
+        </div>
+
+        <form method="POST" action="/submit-quiz" id="quizForm">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
             {% for q in questions %}
-            <div class="question-card">
-                <div class="question-title">
-                    {{ loop.index }}. {{ q.question }}
-                    <span class="badge">{{ q.level }}</span>
+            <div class="mcq-question-card">
+                <div class="mcq-card-header">
+                    <span style="font-size: 0.82rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase;">
+                        Question {{ loop.index }} of {{ questions|length }}
+                    </span>
+                    <span class="bloom-badge-pill" style="font-size: 0.75rem; background: var(--primary-subtle); color: var(--primary); border-color: var(--primary-border);">
+                        {{ q.level }}
+                    </span>
                 </div>
-                <div class="options">
+
+                <div class="mcq-question-text">
+                    {{ q.question }}
+                </div>
+
+                <div class="mcq-options-container">
                     {% for key, val in q.options.items() %}
-                    <label>
-                        <input type="radio" name="q{{ q.id }}" value="{{ key }}" required>
-                        <strong>{{ key }}:</strong> {{ val }}
+                    <label class="mcq-option-label" onclick="updateQuizCounter()">
+                        <input type="radio" name="q{{ q.id }}" value="{{ key }}" required style="display: none;">
+                        <span class="mcq-option-letter">{{ key }}</span>
+                        <span class="option-text-wrap" style="color: var(--text-primary); font-size: 0.95rem;">
+                            {{ val }}
+                        </span>
                     </label>
                     {% endfor %}
                 </div>
             </div>
             {% endfor %}
-            
-            <button type="submit" class="btn btn-primary" style="width: 100%; font-size: 18px;">Submit Answers</button>
+
+            <div style="max-width: 820px; margin: 30px auto; text-align: center;">
+                <button type="submit" class="btn-pill-primary" style="padding: 16px 48px; font-size: 1.05rem;">
+                    Submit Quiz →
+                </button>
+            </div>
         </form>
-    </div>
+    </main>
+
+    <!-- Quiz Interaction & Theme Script -->
+    <script>
+        function updateQuizCounter() {
+            // Count distinct answered question radio groups
+            const answeredGroups = new Set();
+            document.querySelectorAll('input[type="radio"]:checked').forEach(radio => {
+                answeredGroups.add(radio.name);
+                // Also visually mark active state
+                radio.closest('.mcq-options-container').querySelectorAll('.mcq-option-label').forEach(lbl => {
+                    lbl.style.borderColor = 'var(--border-subtle)';
+                    lbl.style.background = 'var(--bg-surface)';
+                });
+                const parent = radio.closest('.mcq-option-label');
+                if (parent) {
+                    parent.style.borderColor = 'var(--primary)';
+                    parent.style.background = 'var(--primary-subtle)';
+                }
+            });
+            const count = answeredGroups.size;
+            document.getElementById('answeredCount').textContent = count;
+        }
+
+        // Theme Switcher Logic
+        function applyTheme(theme) {
+            document.body.className = theme;
+            localStorage.setItem('smart_study_theme', theme);
+            const btn = document.getElementById('themeToggleBtn');
+            if (btn) btn.innerHTML = theme === 'theme-dark' ? '☀️ Light' : '🌙 Dark';
+        }
+
+        function toggleTheme() {
+            const isDark = document.body.classList.contains('theme-dark');
+            applyTheme(isDark ? 'theme-light' : 'theme-dark');
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const saved = localStorage.getItem('smart_study_theme') || 'theme-light';
+            applyTheme(saved);
+        });
+    </script>
 </body>
 </html>

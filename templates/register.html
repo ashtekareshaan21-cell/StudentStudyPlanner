@@ -4,60 +4,39 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Register - Smart Study Planner</title>
+    <title>Create Account — SmartStudyPlanner</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <style>
-        .auth-container {
-            max-width: 500px;
-            margin: 50px auto;
-            padding: 30px;
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            border: 1px solid var(--border-color, #ddd);
-        }
-        .form-group {
-            margin-bottom: 20px;
-        }
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 600;
-        }
-        .form-group input {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid var(--border-color, #ddd);
-            border-radius: 5px;
-            font-size: 16px;
-        }
-        .error-message {
-            background-color: #f8d7da;
-            color: #721c24;
-            padding: 12px;
-            border-radius: 5px;
-            margin-bottom: 20px;
-            text-align: center;
-            border: 1px solid #f5c6cb;
-        }
-    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        (function() {
+            const savedTheme = localStorage.getItem('smart_study_theme') || 'theme-light';
+            document.documentElement.className = savedTheme;
+        })();
+    </script>
 </head>
-<body>
+<body class="theme-light">
     <nav class="navbar">
-        <div class="container">
-            <h1 class="logo">📚 Smart Study Planner</h1>
-            <ul class="nav-links">
-                <li><a href="/">Home</a></li>
-                <li><a href="/docs">API Docs</a></li>
-                <li><a href="/login">Login</a></li>
-            </ul>
+        <div class="nav-inner">
+            <a href="/" class="brand-wrapper" style="text-decoration: none;">
+                <span class="smart-logo-dot"></span>
+                <span class="brand-title" style="letter-spacing: -0.5px;">SmartStudyPlanner</span>
+            </a>
+
+            <div class="nav-actions" style="display: flex; align-items: center; gap: 10px;">
+                <button type="button" class="theme-toggle-btn" id="themeToggleBtn" onclick="toggleTheme()" title="Toggle Theme">
+                    🌓 Theme
+                </button>
+                <a href="/login" class="btn-pill-outline" style="padding: 7px 16px; font-size: 0.84rem;">Log In</a>
+            </div>
         </div>
     </nav>
 
-    <div class="container">
+    <div class="auth-wrapper">
         <div class="auth-container">
-            <h2>Create an Account</h2>
-            <p class="subtitle">Join us to organize your study plans intelligently.</p>
+            <h2>Get Started 🚀</h2>
+            <p class="subtitle">Join SmartStudyPlanner to organize your study sessions with smart AI.</p>
 
             {% if error %}
             <div class="error-message">
@@ -68,33 +47,52 @@
             <form method="POST" action="/register">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 
-                <div class="form-group">
+                <div class="auth-form-group">
                     <label for="username">Username</label>
                     <input type="text" id="username" name="username" placeholder="Choose a username" required>
                 </div>
 
-                <div class="form-group">
+                <div class="auth-form-group">
                     <label for="email">Email Address</label>
-                    <input type="email" id="email" name="email" placeholder="Enter your email" required>
+                    <input type="email" id="email" name="email" placeholder="student@example.com" required>
                 </div>
 
-                <div class="form-group">
+                <div class="auth-form-group">
                     <label for="password">Password (min 6 chars)</label>
                     <input type="password" id="password" name="password" placeholder="Create a password" required>
                 </div>
 
-                <div class="form-group">
+                <div class="auth-form-group">
                     <label for="confirm_password">Confirm Password</label>
                     <input type="password" id="confirm_password" name="confirm_password" placeholder="Verify password" required>
                 </div>
 
-                <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 10px;">Register</button>
+                <button type="submit" class="btn-auth-submit">Create Free Account</button>
             </form>
 
-            <p style="text-align: center; margin-top: 20px;">
-                Already have an account? <a href="/login">Login here</a>
+            <p style="text-align: center; margin-top: 24px; font-size: 0.9rem; color: var(--text-muted);">
+                Already have an account? <a href="/login" style="color: var(--primary); font-weight: 700; text-decoration: none;">Log in here</a>
             </p>
         </div>
     </div>
+
+    <script>
+        function applyTheme(theme) {
+            document.body.className = theme;
+            localStorage.setItem('smart_study_theme', theme);
+            const btn = document.getElementById('themeToggleBtn');
+            if (btn) btn.innerHTML = theme === 'theme-dark' ? '☀️ Light' : '🌙 Dark';
+        }
+
+        function toggleTheme() {
+            const isDark = document.body.classList.contains('theme-dark');
+            applyTheme(isDark ? 'theme-light' : 'theme-dark');
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const saved = localStorage.getItem('smart_study_theme') || 'theme-light';
+            applyTheme(saved);
+        });
+    </script>
 </body>
 </html>

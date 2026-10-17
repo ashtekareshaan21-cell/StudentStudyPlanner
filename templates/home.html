@@ -1,91 +1,194 @@
 <!-- templates/home.html -->
-<!-- Home page with welcome message and navigation -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Study Planner</title>
+    <title>Smart Study Planner — AI-Powered Study Optimization</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        (function() {
+            const savedTheme = localStorage.getItem('smart_study_theme') || 'theme-light';
+            document.documentElement.className = savedTheme;
+        })();
+    </script>
 </head>
-<body>
+<body class="theme-light">
+    <!-- Navbar matching Report Page 5 -->
     <nav class="navbar">
-        <div class="container">
-            <h1 class="logo">📚 Smart Study Planner</h1>
-            <ul class="nav-links">
-                <li><a href="/">Home</a></li>
-                {% if session.get('user_id') %}
-                    <li><a href="/planner">Start Planning</a></li>
-                    <li><a href="/tasks">Tasks</a></li>
-                    <li><a href="/history">History</a></li>
-                    <li><a href="/docs">API Docs</a></li>
-                    <li class="welcome-text" style="color: white; margin-left: 15px; font-weight: bold; display: inline-block;">Welcome, {{ session.username }}!</li>
-                    <li><a href="/logout" class="btn-logout" style="color: #ff4d4d; font-weight: bold; margin-left: 10px;">Logout</a></li>
-                {% else %}
-                    <li><a href="/docs">API Docs</a></li>
-                    <li><a href="/login" class="btn-login" style="font-weight: bold;">Login</a></li>
-                    <li><a href="/register" class="btn-register" style="font-weight: bold; margin-left: 10px;">Register</a></li>
-                {% endif %}
+        <div class="nav-inner">
+            <a href="/" class="brand-wrapper" style="text-decoration: none;">
+                <span class="smart-logo-dot"></span>
+                <span class="brand-title" style="letter-spacing: -0.5px;">SmartStudyPlanner</span>
+            </a>
+
+            <ul class="nav-menu">
+                <li><a href="/" class="nav-link active">Home</a></li>
+                <li><a href="/planner" class="nav-link">Planner</a></li>
+                <li><a href="/quiz" class="nav-link">AI Quiz</a></li>
+                <li><a href="/history" class="nav-link">History</a></li>
+                <li><a href="/tasks" class="nav-link">Tasks</a></li>
+                <li><a href="/docs" class="nav-link">Docs</a></li>
             </ul>
+
+            <div class="nav-actions" style="display: flex; align-items: center; gap: 10px;">
+                <button type="button" class="theme-toggle-btn" id="themeToggleBtn" onclick="toggleTheme()" title="Toggle Theme">
+                    🌓 Theme
+                </button>
+
+                {% if session.get('username') %}
+                <a href="/history" class="user-pill" title="{{ session.username }}">
+                    <div class="user-avatar-circle">{{ session.username[0]|upper }}</div>
+                    <span>{{ session.username }}</span>
+                </a>
+                <a href="/logout" style="color: #EF4444; font-size: 0.84rem; text-decoration: none; font-weight: 700; margin-left: 6px;">Logout</a>
+                {% else %}
+                <a href="/login" class="nav-link" style="font-weight: 700;">Login</a>
+                <a href="/register" class="btn-pill-primary" style="padding: 8px 18px; font-size: 0.86rem;">Register</a>
+                {% endif %}
+            </div>
         </div>
     </nav>
 
-    <div class="container">
-        <section class="hero">
-            <h2>Welcome to Your Smart Study Planner!</h2>
-            <p>Create personalized study plans based on your mood, time, and learning needs.</p>
-            
-            <div class="features">
-                <div class="feature-card">
-                    <h3>📊 Mood Analysis</h3>
-                    <p>We analyze your mood to suggest the right study intensity for you.</p>
-                </div>
-                
-                <div class="feature-card">
-                    <h3>⏱️ Smart Time Management</h3>
-                    <p>Intelligently allocate study hours between subjects based on difficulty.</p>
-                </div>
-                
-                <div class="feature-card">
-                    <h3>⚠️ Burnout Detection</h3>
-                    <p>Get alerts if you're studying too much with insufficient sleep.</p>
-                </div>
-                
-                <div class="feature-card">
-                    <h3>☕ Break Scheduler</h3>
-                    <p>Smart break scheduling to keep you fresh during study sessions.</p>
-                </div>
-                
-                <div class="feature-card">
-                    <h3>📈 Productivity Scoring</h3>
-                    <p>Track your productivity based on mood, sleep, and study hours.</p>
-                </div>
-                
-                <div class="feature-card">
-                    <h3>📝 Study History</h3>
-                    <p>Review your study sessions and weekly statistics.</p>
-                </div>
+    <!-- Main Hero Section (Report Page 5 Screenshot) -->
+    <main>
+        <section class="home-hero-wrap">
+            <div class="smart-intelligence-pill">
+                ✨ Smart Study Intelligence
             </div>
 
-            <div class="cta-buttons">
-                <a href="/planner" class="btn btn-primary">Start Planning Now</a>
-                <a href="/history" class="btn btn-secondary">View History</a>
+            <h1 class="home-hero-title">
+                Your Smart Study Planner that optimizes focus, mood, and results.
+            </h1>
+
+            <p class="home-hero-sub">
+                Generate a personalized study plan, detect burnout risk, track your habits, and take an AI quiz crafted to match your exam difficulty.
+            </p>
+
+            <div class="home-hero-actions">
+                <a href="/planner" class="btn-pill-primary">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                    </svg>
+                    Generate Study Plan
+                </a>
+                <a href="#features" class="btn-pill-outline">
+                    Explore Features
+                </a>
             </div>
         </section>
 
-        <section class="info">
-            <h3>How It Works</h3>
-            <ol>
-                <li><strong>Fill the Form:</strong> Tell us about your mood, available study time, exam days, subjects, and sleep hours.</li>
-                <li><strong>AI Analysis:</strong> Our Python logic analyzes your situation and mood.</li>
-                <li><strong>Get Plan:</strong> Receive a personalized study plan with time allocation and break schedule.</li>
-                <li><strong>Track Progress:</strong> Save your sessions and review weekly statistics.</li>
-            </ol>
-        </section>
-    </div>
+        <!-- What You Get Section (Report Page 5) -->
+        <section id="features" style="max-width: 1100px; margin: 0 auto; padding: 0 20px;">
+            <div class="section-intro-block">
+                <div class="section-intro-tag">What you get</div>
+                <h2 class="section-intro-title">Clean analytics and smart ideas designed for students.</h2>
+                <p class="section-intro-desc">Powered by intelligent heuristic modeling, sleep tracking, and Bloom's taxonomy.</p>
+            </div>
 
-    <footer>
-        <p>&copy; 2026 Smart Study Planner | Created with Python & Flask</p>
+            <div class="four-features-grid">
+                <div class="feature-box-card">
+                    <div class="feature-box-icon" style="color: #6366F1;">😊</div>
+                    <h3 class="feature-box-title">Mood Analysis</h3>
+                    <p class="feature-box-desc">We analyze your mood to suggest the right study intensity, pace, and cognitive rest intervals for you.</p>
+                </div>
+
+                <div class="feature-box-card">
+                    <div class="feature-box-icon" style="color: #10B981;">⏱️</div>
+                    <h3 class="feature-box-title">Smart Time Management</h3>
+                    <p class="feature-box-desc">Intelligently allocate study hours between subjects based on difficulty, exam urgency, and syllabus load.</p>
+                </div>
+
+                <div class="feature-box-card">
+                    <div class="feature-box-icon" style="color: #EF4444;">🛡️</div>
+                    <h3 class="feature-box-title">Burnout Detection</h3>
+                    <p class="feature-box-desc">Get proactive alerts if you are overstudying with insufficient sleep to prevent mental exhaustion.</p>
+                </div>
+
+                <div class="feature-box-card">
+                    <div class="feature-box-icon" style="color: #F59E0B;">⏳</div>
+                    <h3 class="feature-box-title">Study Timer</h3>
+                    <p class="feature-box-desc">Pomodoro-style timer with preset focus and rest intervals to keep your sessions organized and sharp.</p>
+                </div>
+            </div>
+
+            <!-- How It Works Section (Report Page 9 Flowchart) -->
+            <div class="section-intro-block" style="margin-top: 60px;">
+                <div class="section-intro-tag">Architecture & Flow</div>
+                <h2 class="section-intro-title">How Smart Study Planner Works</h2>
+            </div>
+
+            <div class="four-features-grid" style="margin-bottom: 50px;">
+                <div class="feature-box-card" style="border-top: 3px solid #6366F1;">
+                    <div style="font-weight: 800; font-size: 0.85rem; color: #6366F1; margin-bottom: 8px;">STEP 1</div>
+                    <h4 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 8px; color: var(--text-primary);">Enter Study Context</h4>
+                    <p class="feature-box-desc">Provide your mood level (1-5), available study hours, sleep duration, and upcoming exam dates.</p>
+                </div>
+
+                <div class="feature-box-card" style="border-top: 3px solid #8B5CF6;">
+                    <div style="font-weight: 800; font-size: 0.85rem; color: #8B5CF6; margin-bottom: 8px;">STEP 2</div>
+                    <h4 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 8px; color: var(--text-primary);">AI Calibration</h4>
+                    <p class="feature-box-desc">Algorithms compute productivity score, burnout risk index, and subject-wise schedule allocation.</p>
+                </div>
+
+                <div class="feature-box-card" style="border-top: 3px solid #10B981;">
+                    <div style="font-weight: 800; font-size: 0.85rem; color: #10B981; margin-bottom: 8px;">STEP 3</div>
+                    <h4 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 8px; color: var(--text-primary);">Timed Execution</h4>
+                    <p class="feature-box-desc">Follow your customized timeline blocks with the integrated Pomodoro focus timer.</p>
+                </div>
+
+                <div class="feature-box-card" style="border-top: 3px solid #0284C7;">
+                    <div style="font-weight: 800; font-size: 0.85rem; color: #0284C7; margin-bottom: 8px;">STEP 4</div>
+                    <h4 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 8px; color: var(--text-primary);">Test & Track</h4>
+                    <p class="feature-box-desc">Reinforce retention with 6 Bloom's taxonomy MCQs (Remember, Understand, Apply) and view history stats.</p>
+                </div>
+            </div>
+
+            <!-- College Report Credit Box -->
+            <div class="college-report-banner">
+                <div class="college-seal-icon">🎓</div>
+                <div>
+                    <h4 style="font-size: 1rem; font-weight: 800; color: var(--text-primary); margin-bottom: 4px;">
+                        Pimpri Chinchwad College of Engineering (PCCOE)
+                    </h4>
+                    <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 4px;">
+                        Department of Computer Engineering | <strong>Project: Smart Study Planner</strong>
+                    </p>
+                    <p style="font-size: 0.8rem; color: var(--text-muted);">
+                        Submitted by: Eshaan Ashtekar (125B1B292), Apurv Fating (125B1B302), Harikrishna Pollisetty (125B1B288), Tejas Tohare (125B1B2934) • Under guidance of Prof. Tripti Deshmukh
+                    </p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer style="text-align: center; padding: 40px 20px; font-size: 0.85rem; color: var(--text-muted); border-top: 1px solid var(--border-subtle); margin-top: 40px;">
+        <p>&copy; 2026 Smart Study Planner | Python Flask, OpenAI API & SQLite Architecture</p>
     </footer>
+
+    <!-- Universal Theme Switcher Script -->
+    <script>
+        function applyTheme(theme) {
+            document.body.className = theme;
+            localStorage.setItem('smart_study_theme', theme);
+            const btn = document.getElementById('themeToggleBtn');
+            if (btn) {
+                btn.innerHTML = theme === 'theme-dark' ? '☀️ Light' : '🌙 Dark';
+            }
+        }
+
+        function toggleTheme() {
+            const isDark = document.body.classList.contains('theme-dark');
+            applyTheme(isDark ? 'theme-light' : 'theme-dark');
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const saved = localStorage.getItem('smart_study_theme') || 'theme-light';
+            applyTheme(saved);
+        });
+    </script>
 </body>
 </html>
