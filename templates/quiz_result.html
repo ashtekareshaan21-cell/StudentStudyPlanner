@@ -28,8 +28,11 @@
             <ul class="nav-menu">
                 <li><a href="/" class="nav-link">Home</a></li>
                 <li><a href="/planner" class="nav-link">Planner</a></li>
-                <li><a href="/quiz" class="nav-link active">New Quiz</a></li>
+                <li><a href="/quiz" class="nav-link active">AI Quiz</a></li>
                 <li><a href="/history" class="nav-link">History</a></li>
+                <li><a href="/tasks" class="nav-link">Tasks</a></li>
+                <li><a href="/python-engine" class="nav-link">Python Engine</a></li>
+                <li><a href="/docs" class="nav-link">Docs</a></li>
             </ul>
 
             <div class="nav-actions" style="display: flex; align-items: center; gap: 10px;">
@@ -59,6 +62,7 @@
         <!-- 2-Column Grid matching Report Page 7 Bottom -->
         <div class="quiz-result-grid">
             <!-- Left Card: Score Donut & Recommendation -->
+            {% set safe_total = total if total and total > 0 else 1 %}
             <div class="score-summary-left-card">
                 <div style="font-size: 0.84rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 16px;">
                     Score Assessment
@@ -72,30 +76,30 @@
                             cx="50" 
                             cy="50" 
                             r="40" 
-                            stroke="{% if score / total >= 0.7 %}#10B981{% elif score / total >= 0.4 %}#F59E0B{% else %}#EF4444{% endif %}" 
+                            stroke="{% if score / safe_total >= 0.7 %}#10B981{% elif score / safe_total >= 0.4 %}#F59E0B{% else %}#EF4444{% endif %}" 
                             stroke-width="9" 
                             fill="none" 
                             stroke-linecap="round"
                             stroke-dasharray="251.3" 
-                            stroke-dashoffset="{{ 251.3 - (251.3 * (score / total)) }}" 
+                            stroke-dashoffset="{{ 251.3 - (251.3 * (score / safe_total)) }}" 
                             style="transition: stroke-dashoffset 1s ease;"
                         />
                     </svg>
                     <div class="donut-inner-stat">
                         <div class="donut-score-text">{{ score }}/{{ total }}</div>
-                        <div class="donut-pct-text">{{ ((score / total) * 100)|round|int }}%</div>
+                        <div class="donut-pct-text">{{ ((score / safe_total) * 100)|round|int }}%</div>
                     </div>
                 </div>
 
                 <!-- Status Badge -->
-                {% if score / total >= 0.7 %}
+                {% if score / safe_total >= 0.7 %}
                 <span class="status-badge-pill status-badge-success">
                     🌟 Excellent Mastery
                 </span>
                 <p style="font-size: 0.86rem; color: var(--text-secondary); line-height: 1.5; margin-bottom: 24px;">
                     Outstanding performance! You have demonstrated solid conceptual grasp and application ability on this topic.
                 </p>
-                {% elif score / total >= 0.4 %}
+                {% elif score / safe_total >= 0.4 %}
                 <span class="status-badge-pill status-badge-needs-revision">
                     ⚠️ Needs Revision
                 </span>

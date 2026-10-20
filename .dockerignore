@@ -11,6 +11,8 @@ study_data.csv
 .github
 *.db
 *.sqlite
+instance/
+*.log
 Dockerfile
 docker-compose.yml
 GETTING_STARTED.txt

@@ -31,6 +31,8 @@
                 <li><a href="/quiz" class="nav-link">AI Quiz</a></li>
                 <li><a href="/history" class="nav-link active">History</a></li>
                 <li><a href="/tasks" class="nav-link">Tasks</a></li>
+                <li><a href="/python-engine" class="nav-link">Python Engine</a></li>
+                <li><a href="/docs" class="nav-link">Docs</a></li>
             </ul>
 
             <div class="nav-actions" style="display: flex; align-items: center; gap: 10px;">
@@ -202,7 +204,7 @@
                             </td>
                             <td>
                                 <strong style="color: {% if s.Productivity_Score|float >= 70 %}#10B981{% elif s.Productivity_Score|float >= 50 %}#F59E0B{% else %}#EF4444{% endif %};">
-                                    {{ s.Productivity_Score|round(0)|int }}%
+                                    {{ s.Productivity_Score|float|round(0)|int }}%
                                 </strong>
                             </td>
                             <td>

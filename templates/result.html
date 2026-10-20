@@ -31,6 +31,8 @@
                 <li><a href="/quiz" class="nav-link">AI Quiz</a></li>
                 <li><a href="/history" class="nav-link">History</a></li>
                 <li><a href="/tasks" class="nav-link">Tasks</a></li>
+                <li><a href="/python-engine" class="nav-link">Python Engine</a></li>
+                <li><a href="/docs" class="nav-link">Docs</a></li>
             </ul>
 
             <div class="nav-actions" style="display: flex; align-items: center; gap: 10px;">
@@ -52,6 +54,10 @@
         <!-- Header Banner (Report Page 6 Top) -->
         <div class="result-header-banner">
             <h1 class="result-main-title">Your Smart Study Plan</h1>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px;">
+                <span class="plan-feature-badge badge-goal">🎯 {{ plan.goal_label or 'University Final Exam' }}</span>
+                <span class="plan-feature-badge badge-mode">⚡ {{ plan.study_mode_name or 'Deep Work (50m Focus / 10m Break)' }}</span>
+            </div>
             <div class="result-meta-pill-bar">
                 <span>Mood: <strong class="highlight">{{ mood }}</strong></span>
                 <span class="bullet">•</span>
@@ -146,11 +152,16 @@
                 {% for subject, hours in plan.time_allocation.items() %}
                 <div class="subject-allocation-item">
                     <div class="subject-alloc-header">
-                        <span>{{ subject }}</span>
+                        <span>
+                            {{ subject }}
+                            {% if plan.weak_subjects and subject in plan.weak_subjects %}
+                            <span style="font-size: 0.72rem; color: #D97706; background: #FEF3C7; padding: 2px 7px; border-radius: 999px; margin-left: 6px; font-weight: 700;">⭐ Priority</span>
+                            {% endif %}
+                        </span>
                         <span class="subject-alloc-hours">{{ hours }}h</span>
                     </div>
                     <div class="subject-alloc-bar-bg">
-                        <div class="subject-alloc-bar-fill" style="width: {{ (hours / study_hours * 100)|round|int }}%;"></div>
+                        <div class="subject-alloc-bar-fill" style="width: {{ (hours / (study_hours if study_hours > 0 else 1) * 100)|round|int }}%;"></div>
                     </div>
                 </div>
                 {% endfor %}
@@ -173,24 +184,33 @@
             <div class="rec-card-box">
                 <h3 class="card-title-heading" style="margin-bottom: 16px;">💡 Smart recommendations</h3>
                 <ul class="rec-tips-list">
-                    <li class="rec-tip-item">
-                        <span class="rec-tip-bullet">✓</span>
-                        <div>
-                            <strong>Start with high-yield topics:</strong> Prioritize {{ subjects[0] if subjects else 'foundational concepts' }} during your peak cognitive window.
-                        </div>
-                    </li>
-                    <li class="rec-tip-item">
-                        <span class="rec-tip-bullet">✓</span>
-                        <div>
-                            <strong>First 90 minutes:</strong> Dedicate to pure conceptual absorption before attempting practice problems.
-                        </div>
-                    </li>
-                    <li class="rec-tip-item">
-                        <span class="rec-tip-bullet">✓</span>
-                        <div>
-                            <strong>Active recall:</strong> Close notes and explain formulas or logic out loud to reinforce long-term memory.
-                        </div>
-                    </li>
+                    {% if plan.goal_recommendations %}
+                        {% for tip in plan.goal_recommendations %}
+                        <li class="rec-tip-item">
+                            <span class="rec-tip-bullet">✓</span>
+                            <div>{{ tip }}</div>
+                        </li>
+                        {% endfor %}
+                    {% else %}
+                        <li class="rec-tip-item">
+                            <span class="rec-tip-bullet">✓</span>
+                            <div>
+                                <strong>Start with high-yield topics:</strong> Prioritize {{ subjects[0] if subjects else 'foundational concepts' }} during your peak cognitive window.
+                            </div>
+                        </li>
+                        <li class="rec-tip-item">
+                            <span class="rec-tip-bullet">✓</span>
+                            <div>
+                                <strong>First 90 minutes:</strong> Dedicate to pure conceptual absorption before attempting practice problems.
+                            </div>
+                        </li>
+                        <li class="rec-tip-item">
+                            <span class="rec-tip-bullet">✓</span>
+                            <div>
+                                <strong>Active recall:</strong> Close notes and explain formulas or logic out loud to reinforce long-term memory.
+                            </div>
+                        </li>
+                    {% endif %}
                     <li class="rec-tip-item">
                         <span class="rec-tip-bullet">✓</span>
                         <div>
@@ -206,17 +226,17 @@
                 <p class="card-title-desc" style="margin-bottom: 14px;">Structured intervals for maximum cognitive retention.</p>
                 <div class="break-pills-row">
                     <div class="break-pill-box">
-                        <div class="break-pill-num">35</div>
+                        <div class="break-pill-num">{{ plan.focus_block_mins or 50 }}</div>
                         <div class="break-pill-unit">MIN</div>
                         <div class="break-pill-lbl">Focus Block</div>
                     </div>
                     <div class="break-pill-box">
-                        <div class="break-pill-num">7</div>
+                        <div class="break-pill-num">{{ plan.short_break_mins or 10 }}</div>
                         <div class="break-pill-unit">MIN</div>
                         <div class="break-pill-lbl">Short Break</div>
                     </div>
                     <div class="break-pill-box">
-                        <div class="break-pill-num">12</div>
+                        <div class="break-pill-num">{{ plan.long_break_mins or 20 }}</div>
                         <div class="break-pill-unit">MIN</div>
                         <div class="break-pill-lbl">Long Break</div>
                     </div>
@@ -227,15 +247,15 @@
         <!-- Study Timer Section (Report Page 8 Bottom) -->
         <div class="timer-section-container">
             <h3 class="card-title-heading" style="margin-bottom: 4px;">⏱️ Study Timer</h3>
-            <p class="card-title-desc" style="margin-bottom: 20px;">Pomodoro focus timer designed to prevent cognitive fatigue.</p>
+            <p class="card-title-desc" style="margin-bottom: 20px;">Synchronized with your selected {{ plan.study_mode_name or 'Deep Work' }} pacing.</p>
 
             <div class="timer-mode-tabs">
-                <button type="button" class="timer-mode-btn active" onclick="setTimerDuration(25 * 60, this)">25:00 Focus</button>
-                <button type="button" class="timer-mode-btn" onclick="setTimerDuration(5 * 60, this)">05:00 Break</button>
-                <button type="button" class="timer-mode-btn" onclick="setTimerDuration(15 * 60, this)">15:00 Long Break</button>
+                <button type="button" class="timer-mode-btn active" onclick="setTimerDuration(({{ plan.focus_block_mins or 50 }}) * 60, this)">{{ '%02d' % (plan.focus_block_mins or 50) }}:00 Focus</button>
+                <button type="button" class="timer-mode-btn" onclick="setTimerDuration(({{ plan.short_break_mins or 10 }}) * 60, this)">{{ '%02d' % (plan.short_break_mins or 10) }}:00 Break</button>
+                <button type="button" class="timer-mode-btn" onclick="setTimerDuration(({{ plan.long_break_mins or 20 }}) * 60, this)">{{ '%02d' % (plan.long_break_mins or 20) }}:00 Long Break</button>
             </div>
 
-            <div class="timer-countdown-big" id="timerDisplay">25:00</div>
+            <div class="timer-countdown-big" id="timerDisplay">{{ '%02d' % (plan.focus_block_mins or 50) }}:00</div>
 
             <div class="timer-controls-row">
                 <button type="button" class="btn-timer-ctrl btn-timer-start" id="startTimerBtn" onclick="startTimer()">
@@ -278,8 +298,8 @@
     <!-- Timer JavaScript -->
     <script>
         let timerInterval = null;
-        let initialSeconds = 25 * 60;
-        let remainingSeconds = 25 * 60;
+        let initialSeconds = ({{ plan.focus_block_mins or 50 }}) * 60;
+        let remainingSeconds = initialSeconds;
         let isRunning = false;
 
         function updateDisplay() {

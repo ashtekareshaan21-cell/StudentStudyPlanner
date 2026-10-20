@@ -2,7 +2,7 @@
 # Database models mapping the schema using Flask-SQLAlchemy
 
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime
+from datetime import datetime, timezone
 import secrets
 import json
 
@@ -20,7 +20,7 @@ class User(db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
     api_token = db.Column(db.String(255), unique=True, nullable=True, default=lambda: secrets.token_hex(32))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     # Relationships mapping to other user data
     sessions = db.relationship('StudySession', backref='user', lazy=True, cascade="all, delete-orphan")
@@ -51,7 +51,7 @@ class StudySession(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    session_date = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    session_date = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
     mood = db.Column(db.Integer, nullable=False)
     study_hours = db.Column(db.Float, nullable=False)
     sleep_hours = db.Column(db.Float, nullable=False)
@@ -59,7 +59,7 @@ class StudySession(db.Model):
     subjects = db.Column(db.Text, nullable=False)  # stored as semicolon-separated string
     productivity_score = db.Column(db.Float, nullable=False)
     burnout_risk = db.Column(db.String(50), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     def to_dict(self):
         """
@@ -99,7 +99,7 @@ class StudyPlan(db.Model):
     productivity_score = db.Column(db.Float, nullable=False)
     burnout_risk = db.Column(db.String(50), nullable=False)
     plan_details = db.Column(db.Text, nullable=False)  # JSON-serialized layout details
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     def to_dict(self):
         """
@@ -140,7 +140,7 @@ class QuizResult(db.Model):
     score = db.Column(db.Integer, nullable=False)
     total_questions = db.Column(db.Integer, nullable=False)
     results_json = db.Column(db.Text, nullable=False)  # JSON-serialized responses
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     def to_dict(self):
         """
@@ -178,7 +178,7 @@ class Task(db.Model):
     due_date = db.Column(db.DateTime, nullable=True)
     priority = db.Column(db.String(20), nullable=False, default='Medium')  # Low, Medium, High
     status = db.Column(db.String(20), nullable=False, default='Pending')  # Pending, In Progress, Completed
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     def to_dict(self):
         """

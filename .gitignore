@@ -133,8 +133,14 @@ Thumbs.db
 .env
 .flaskenv
 
-# Local database files
+# Local database & data files
 study_data.csv
+students_data.csv
+data/
 *.sql
 *.db
 instance/
+
+# Vercel deployment folder
+.vercel/
+

@@ -31,6 +31,8 @@
                 <li><a href="/quiz" class="nav-link">AI Quiz</a></li>
                 <li><a href="/history" class="nav-link">History</a></li>
                 <li><a href="/tasks" class="nav-link">Tasks</a></li>
+                <li><a href="/python-engine" class="nav-link">Python Engine</a></li>
+                <li><a href="/docs" class="nav-link">Docs</a></li>
             </ul>
 
             <div class="nav-actions" style="display: flex; align-items: center; gap: 10px;">
@@ -67,6 +69,41 @@
                 <form id="adaptivePlanForm" method="POST" action="/generate-plan">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                     <input type="hidden" id="selectedMood" name="mood" value="4">
+                    <input type="hidden" id="preferredTimeInput" name="preferred_time" value="evening">
+
+                    <!-- Personalised Strategy Section -->
+                    <div class="planner-config-section">
+                        <div class="planner-config-grid">
+                            <!-- Goal Type -->
+                            <div class="input-block">
+                                <label class="config-label" for="goalTypeSelect">
+                                    <span>🎯 Goal / Exam Type</span>
+                                    <span class="config-sublabel">Tailors recommendations & priority</span>
+                                </label>
+                                <select class="config-select" name="goal_type" id="goalTypeSelect">
+                                    <option value="university" selected>🎓 University Final Exam</option>
+                                    <option value="placement">💼 Placement & Coding Prep</option>
+                                    <option value="midterm">📝 Mid-Term / Unit Test</option>
+                                    <option value="competitive">🏆 Competitive Exam (GATE/CAT/GRE)</option>
+                                    <option value="regular">📚 Regular Semester Study</option>
+                                </select>
+                            </div>
+
+                            <!-- Study Mode & Pacing -->
+                            <div class="input-block">
+                                <label class="config-label" for="studyModeSelect">
+                                    <span>⚡ Study Mode & Pacing</span>
+                                    <span class="config-sublabel">Adapts focus & interval lengths</span>
+                                </label>
+                                <select class="config-select" name="study_mode" id="studyModeSelect">
+                                    <option value="deep_work" selected>🧠 Deep Work (50m Focus / 10m Break)</option>
+                                    <option value="pomodoro">🍅 Classic Pomodoro (25m Focus / 5m Break)</option>
+                                    <option value="ultradian">⚡ Ultradian Sprint (90m Focus / 20m Break)</option>
+                                    <option value="light">🌿 Light & Easy (30m Focus / 10m Break)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
 
                     <!-- Subjects Container -->
                     <div id="subjectList">
@@ -77,8 +114,8 @@
                                     type="text" 
                                     class="subject-name-input" 
                                     name="subject_name[]" 
-                                    placeholder="Subject name" 
-                                    value="Codex"
+                                    placeholder="Subject name (e.g. CPPS, Math)" 
+                                    value=""
                                     required
                                 >
                                 <button type="button" class="btn-subject-del" title="Delete subject" onclick="removeSubjectRow(this)">
@@ -120,6 +157,16 @@
                                     placeholder="Target topics (optional)"
                                 >
                             </div>
+
+                            <!-- Weak Subject / High Priority Flag -->
+                            <div class="subject-extra-row">
+                                <label class="weak-toggle-label">
+                                    <input type="hidden" class="is-weak-hidden" name="is_weak[]" value="false">
+                                    <input type="checkbox" class="is-weak-checkbox" onchange="toggleWeakSubject(this)">
+                                    <span class="weak-badge-text">⭐ Mark as Priority / Weak Subject</span>
+                                </label>
+                                <span class="weak-hint">Peak cognitive slot & +2 weight</span>
+                            </div>
                         </div>
                     </div>
 
@@ -132,7 +179,7 @@
                         Add subject
                     </button>
 
-                    <!-- Quick Session Tuning (Mood, Sleep, Time) -->
+                    <!-- Quick Session Tuning (Mood, Sleep, Time, Study Hours) -->
                     <div class="quick-params-card">
                         <div class="params-header">Daily Context & Energy</div>
                         
@@ -163,8 +210,41 @@
                             </div>
                         </div>
 
-                        <!-- Sleep & Time Row -->
-                        <div class="params-grid">
+                        <!-- Preferred Study Window Row -->
+                        <div style="margin-bottom: 14px;">
+                            <div style="font-size: 0.78rem; color: #94A3B8; margin-bottom: 6px;">Preferred study window (Peak focus)</div>
+                            <div class="time-presets-row">
+                                <button type="button" class="time-preset-btn" data-time="morning" data-start="07:00" onclick="selectTimePreset('morning', '07:00', this)">
+                                    🌅 Morning <small>(7 AM)</small>
+                                </button>
+                                <button type="button" class="time-preset-btn" data-time="afternoon" data-start="13:00" onclick="selectTimePreset('afternoon', '13:00', this)">
+                                    ☀️ Afternoon <small>(1 PM)</small>
+                                </button>
+                                <button type="button" class="time-preset-btn active" data-time="evening" data-start="18:00" onclick="selectTimePreset('evening', '18:00', this)">
+                                    🌆 Evening <small>(6 PM)</small>
+                                </button>
+                                <button type="button" class="time-preset-btn" data-time="night" data-start="22:00" onclick="selectTimePreset('night', '22:00', this)">
+                                    🌙 Night Owl <small>(10 PM)</small>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Study Hours, Sleep & Time Row -->
+                        <div class="params-grid" style="grid-template-columns: repeat(3, 1fr);">
+                            <div class="input-block">
+                                <label style="font-size: 0.78rem; color: #94A3B8;">Target study hours</label>
+                                <input 
+                                    type="number" 
+                                    class="form-control" 
+                                    name="study_hours" 
+                                    id="studyHoursInput" 
+                                    value="5.0" 
+                                    step="0.5" 
+                                    min="1" 
+                                    max="14"
+                                    style="padding: 8px 12px; font-size: 0.9rem;"
+                                >
+                            </div>
                             <div class="input-block">
                                 <label style="font-size: 0.78rem; color: #94A3B8;">Sleep hours</label>
                                 <input 
@@ -218,7 +298,28 @@
             <section>
                 <!-- Adaptive Timeline -->
                 <div id="timelineContainer">
-                    <div id="timelineList" class="schedule-timeline">
+                    <!-- Placeholder shown until user inputs data and generates a plan -->
+                    <div id="timelinePlaceholder" class="timeline-empty-card" {% if active_blocks %}style="display: none;"{% endif %}>
+                        <div class="timeline-empty-icon-box">
+                            <span style="font-size: 2.2rem;">✨</span>
+                        </div>
+                        <h3 class="timeline-empty-title">
+                            Your Study Plan Will Appear Here
+                        </h3>
+                        <p class="timeline-empty-desc">
+                            Fill in your subjects, target hours, sleep, and mood on the left, then click <strong>"Generate adaptive plan"</strong> to build your customized focus schedule.
+                        </p>
+                        <div class="timeline-empty-steps">
+                            <span class="timeline-step-pill"><span class="step-num-bubble">1</span> Add Subjects</span>
+                            <span class="timeline-step-arrow">➔</span>
+                            <span class="timeline-step-pill"><span class="step-num-bubble">2</span> Choose Mood & Hours</span>
+                            <span class="timeline-step-arrow">➔</span>
+                            <span class="timeline-step-pill"><span class="step-num-bubble">3</span> Generate Plan</span>
+                        </div>
+                    </div>
+
+                    <!-- Timeline schedule list (populated after input & generation) -->
+                    <div id="timelineList" class="schedule-timeline" {% if not active_blocks %}style="display: none;"{% endif %}>
                         {% for block in active_blocks %}
                         <div class="timeline-card-item {% if block.type == 'focus' %}accent-focus{% elif block.type == 'rest' %}accent-rest{% else %}accent-break{% endif %}">
                             <div class="timeline-time">{{ block.time_range }}</div>
@@ -344,9 +445,38 @@
                         placeholder="Target topics (optional)"
                     >
                 </div>
+                <div class="subject-extra-row">
+                    <label class="weak-toggle-label">
+                        <input type="hidden" class="is-weak-hidden" name="is_weak[]" value="false">
+                        <input type="checkbox" class="is-weak-checkbox" onchange="toggleWeakSubject(this)">
+                        <span class="weak-badge-text">⭐ Mark as Priority / Weak Subject</span>
+                    </label>
+                    <span class="weak-hint">Peak cognitive slot & +2 weight</span>
+                </div>
             `;
             list.appendChild(card);
             card.querySelector('.subject-name-input').focus();
+        }
+
+        // Toggle Weak Subject Card Highlight & Hidden Input
+        function toggleWeakSubject(cb) {
+            const card = cb.closest('.subject-item-card');
+            const hidden = card.querySelector('.is-weak-hidden');
+            if (cb.checked) {
+                card.classList.add('is-weak-card');
+                if (hidden) hidden.value = 'true';
+            } else {
+                card.classList.remove('is-weak-card');
+                if (hidden) hidden.value = 'false';
+            }
+        }
+
+        // Preferred Time Preset Selection
+        function selectTimePreset(timeId, startTime, btn) {
+            document.querySelectorAll('.time-preset-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            document.getElementById('preferredTimeInput').value = timeId;
+            document.getElementById('startTimeInput').value = startTime;
         }
 
         // 3. Remove Subject Row
@@ -359,14 +489,21 @@
                 const card = btn.closest('.subject-item-card');
                 card.querySelector('.subject-name-input').value = '';
                 card.querySelector('.topics-input').value = '';
+                const cb = card.querySelector('.is-weak-checkbox');
+                if (cb) { cb.checked = false; toggleWeakSubject(cb); }
             }
         }
 
         // 4. Render Timeline Blocks
         function renderTimeline(blocks) {
             const container = document.getElementById('timelineList');
+            const placeholder = document.getElementById('timelinePlaceholder');
             if (!blocks || blocks.length === 0) return;
 
+            if (placeholder) {
+                placeholder.style.display = 'none';
+            }
+            container.style.display = 'flex';
             container.innerHTML = '';
             blocks.forEach(block => {
                 const item = document.createElement('div');
@@ -453,13 +590,14 @@
                 const days = parseInt(card.querySelector('.days-val-input').value) || 7;
                 const complexity = parseInt(card.querySelector('.complexity-select').value) || 3;
                 const topics = card.querySelector('.topics-input').value.trim();
+                const isWeak = card.querySelector('.is-weak-checkbox')?.checked || false;
                 if (name) {
-                    subjects.push({ name, days_left: days, complexity, topics });
+                    subjects.push({ name, days_left: days, complexity, topics, is_weak: isWeak });
                 }
             });
 
             if (subjects.length === 0) {
-                subjects.push({ name: 'Codex', days_left: 7, complexity: 3, topics: '' });
+                subjects.push({ name: 'General Study', days_left: 7, complexity: 3, topics: '', is_weak: false });
             }
 
             const payload = {
@@ -467,7 +605,10 @@
                 mood: parseInt(document.getElementById('selectedMood').value) || 4,
                 sleep_hours: parseFloat(document.getElementById('sleepHoursInput').value) || 7.0,
                 start_time: document.getElementById('startTimeInput').value || '18:00',
-                study_hours: 5.0,
+                study_hours: parseFloat(document.getElementById('studyHoursInput').value) || 5.0,
+                goal_type: document.getElementById('goalTypeSelect').value || 'university',
+                study_mode: document.getElementById('studyModeSelect').value || 'deep_work',
+                preferred_time: document.getElementById('preferredTimeInput').value || 'evening',
                 csrf_token: '{{ csrf_token }}'
             };
 
@@ -531,11 +672,16 @@
                         `;
                         list.prepend(newEntry);
                     }
+                    // Smooth scroll to timeline so student sees the plan right away
+                    document.getElementById('timelineContainer')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                 } else {
-                    console.error('Failed to generate adaptive plan.');
+                    const text = await response.text();
+                    console.error('Failed to generate adaptive plan:', text);
+                    alert('Unable to generate plan: ' + (text || 'Server error. Please try again.'));
                 }
             } catch (err) {
                 console.error('Error during generation:', err);
+                alert('Connection error while generating plan. Please check your network and try again.');
             } finally {
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = originalText;

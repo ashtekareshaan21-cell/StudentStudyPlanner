@@ -152,7 +152,7 @@ class TestTaskManagement(unittest.TestCase):
         self.assertEqual(data["priority"], "High")
 
         # Verify DB updates
-        db_task = Task.query.get(task.id)
+        db_task = db.session.get(Task, task.id)
         self.assertEqual(db_task.title, "Updated Title")
         self.assertEqual(db_task.status, "In Progress")
 
@@ -174,7 +174,7 @@ class TestTaskManagement(unittest.TestCase):
         self.assertEqual(json.loads(resp.data)["error"], "Task not found.")
 
         # Task remains unchanged
-        db_task = Task.query.get(task.id)
+        db_task = db.session.get(Task, task.id)
         self.assertEqual(db_task.status, "Pending")
 
     def test_delete_task(self):
@@ -190,8 +190,8 @@ class TestTaskManagement(unittest.TestCase):
         self.assertEqual(json.loads(resp.data)["message"], "Task deleted successfully.")
 
         # Verify deletion in DB
-        db_task = Task.query.get(task.id)
-        self.assertIsNull = self.assertIsNone(db_task)
+        db_task = db.session.get(Task, task.id)
+        self.assertIsNone(db_task)
 
     def test_delete_task_boundary_ownership(self):
         # Create a task for user2
@@ -206,7 +206,7 @@ class TestTaskManagement(unittest.TestCase):
         self.assertEqual(json.loads(resp.data)["error"], "Task not found.")
 
         # Task remains in DB
-        db_task = Task.query.get(task.id)
+        db_task = db.session.get(Task, task.id)
         self.assertIsNotNone(db_task)
 
 if __name__ == '__main__':
