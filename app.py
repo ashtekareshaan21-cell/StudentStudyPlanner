@@ -441,6 +441,8 @@ def get_fallback_quiz(topics):
 # ================= ROUTES =================
 
 @app.route('/')
+@app.route('/api/index')
+@app.route('/api/index.py')
 def home():
     return render_template("home.html")
 

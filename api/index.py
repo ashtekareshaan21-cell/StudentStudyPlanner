@@ -23,17 +23,24 @@ class VercelPathFix:
             environ.get('HTTP_X_VERCEL_PATH') or
             environ.get('HTTP_X_MATCHED_PATH')
         )
-        if original_path and original_path != '/api/index':
+        if original_path and not original_path.startswith('/api/index'):
             environ['PATH_INFO'] = original_path
-        # 2. Strip /api/index prefix when Vercel routes via rewritten destination
-        elif path.startswith('/api/index'):
-            subpath = path[len('/api/index'):]
-            environ['PATH_INFO'] = subpath if (subpath and subpath.startswith('/')) else ('/' + subpath if subpath else '/')
+        else:
+            # 2. Normalize and strip /api/index.py, /api/index, or /api prefixes
+            for prefix in ('/api/index.py', '/api/index', '/api'):
+                if path.startswith(prefix):
+                    remainder = path[len(prefix):]
+                    if remainder in ('', '/'):
+                        environ['PATH_INFO'] = '/'
+                    elif remainder.startswith('/'):
+                        environ['PATH_INFO'] = remainder
+                    break
 
         return self.wsgi_app(environ, start_response)
 
 # Apply WSGI fix
 app.wsgi_app = VercelPathFix(app.wsgi_app)
+
 
 # For local invocation / testing
 if __name__ == "__main__":
