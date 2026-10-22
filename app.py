@@ -62,6 +62,26 @@ if db_url:
     # Inject pg8000 dialect for pure-Python driver compatibility on Python 3.15
     if "postgresql" in db_url and "+pg8000" not in db_url:
         db_url = db_url.replace("postgresql://", "postgresql+pg8000://", 1)
+    if "+pg8000" in db_url:
+        # pg8000 does not accept libpq-style URL parameters. Neon connection
+        # strings include channel_binding (a psycopg/libpq option), which makes
+        # pg8000.connect() fail with "TypeError: connect() got an unexpected
+        # keyword argument 'channel_binding'"; sslmode is likewise not a
+        # pg8000 argument. Drop both from the URL and pass SSL via
+        # connect_args instead.
+        from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
+
+        _parts = urlparse(db_url)
+        _params = dict(parse_qsl(_parts.query))
+        _sslmode = _params.pop("sslmode", None)
+        _params.pop("channel_binding", None)
+        db_url = urlunparse(_parts._replace(query=urlencode(_params)))
+        if _sslmode and _sslmode != "disable":
+            import ssl as _ssl
+
+            app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+                "connect_args": {"ssl_context": _ssl.create_default_context()}
+            }
     app.config["SQLALCHEMY_DATABASE_URI"] = db_url
 elif os.getenv("VERCEL"):
     # On Vercel serverless environment, the root directory is read-only.
