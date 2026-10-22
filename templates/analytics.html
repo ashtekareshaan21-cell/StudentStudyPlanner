@@ -1,0 +1,243 @@
+<!-- templates/analytics.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Learning Analytics — SmartStudyPlanner</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=2">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        (function() {
+            const savedTheme = localStorage.getItem('smart_study_theme') || 'theme-light';
+            document.documentElement.className = savedTheme;
+        })();
+    </script>
+</head>
+<body class="theme-light">
+    <nav class="navbar">
+        <div class="nav-inner">
+            <a href="/" class="brand-wrapper" style="text-decoration: none;">
+                <span class="smart-logo-dot"></span>
+                <span class="brand-title" style="letter-spacing: -0.5px;">SmartStudyPlanner</span>
+            </a>
+
+            <ul class="nav-menu">
+                <li><a href="/" class="nav-link">Home</a></li>
+                <li><a href="/planner" class="nav-link">Planner</a></li>
+                <li><a href="/quiz" class="nav-link">AI Quiz</a></li>
+                <li><a href="/history" class="nav-link">History</a></li>
+                <li><a href="/analytics" class="nav-link active">Analytics</a></li>
+                <li><a href="/tasks" class="nav-link">Tasks</a></li>
+            </ul>
+
+            <div class="nav-actions" style="display: flex; align-items: center; gap: 10px;">
+                <button type="button" class="theme-toggle-btn" id="themeToggleBtn" onclick="toggleTheme()" title="Toggle Theme">
+                    🌓 Theme
+                </button>
+                <a href="/planner" class="btn-pill-primary" style="padding: 7px 16px; font-size: 0.84rem;">New Plan</a>
+            </div>
+        </div>
+    </nav>
+
+    <main style="max-width: 1080px; margin: 36px auto; padding: 0 20px;">
+        <div class="result-header-banner">
+            <h1 class="result-main-title">Learning Analytics</h1>
+            <p style="font-size: 0.92rem; color: var(--text-secondary);">
+                Your study data, explored with Python — pandas summary statistics and
+                group-by analysis, matplotlib charts rendered on the server, and
+                insights computed from your own sessions and quiz results.
+            </p>
+        </div>
+
+        {% if not has_sessions and not has_quizzes %}
+        <div class="feature-box-card" style="text-align: center; padding: 44px 24px;">
+            <h3 class="card-title-heading" style="margin-bottom: 8px;">No data to explore yet</h3>
+            <p style="font-size: 0.92rem; color: var(--text-muted); margin-bottom: 18px;">
+                Generate a study plan or take a quiz and this page will analyse your
+                sessions, scores, sleep and mood automatically.
+            </p>
+            <a href="/planner" class="btn-pill-primary">Generate a Plan</a>
+            <a href="/quiz" class="btn-pill-outline" style="margin-left: 8px;">Take a Quiz</a>
+        </div>
+        {% else %}
+
+        <!-- Overview stat cards -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 22px;">
+            <div class="metric-stat-card">
+                <div class="metric-stat-title"><span>Study Sessions</span><span class="metric-pill-tag metric-pill-green">pandas</span></div>
+                <div class="metric-stat-val">{{ overview.total_sessions }}</div>
+                <div class="metric-stat-sub">Rows in the sessions DataFrame</div>
+            </div>
+            <div class="metric-stat-card">
+                <div class="metric-stat-title"><span>Total Study Hours</span><span class="metric-pill-tag metric-pill-purple">sum()</span></div>
+                <div class="metric-stat-val">{{ overview.total_study_hours }}</div>
+                <div class="metric-stat-sub">Hours logged</div>
+            </div>
+            <div class="metric-stat-card">
+                <div class="metric-stat-title"><span>Avg Productivity</span><span class="metric-pill-tag metric-pill-amber">mean()</span></div>
+                <div class="metric-stat-val">{{ overview.avg_productivity }}%</div>
+                <div class="metric-stat-sub">Across all sessions</div>
+            </div>
+            <div class="metric-stat-card">
+                <div class="metric-stat-title"><span>Avg Quiz Score</span><span class="metric-pill-tag metric-pill-green">mean()</span></div>
+                <div class="metric-stat-val">{{ overview.avg_quiz_pct }}%</div>
+                <div class="metric-stat-sub">{{ overview.quizzes_taken }} quizzes taken</div>
+            </div>
+        </div>
+
+        {% if insights %}
+        <!-- Auto-generated insights -->
+        <div class="feature-box-card" style="box-shadow: var(--shadow-card); margin-bottom: 22px;">
+            <h3 class="card-title-heading" style="margin-bottom: 4px;">Insights from your data</h3>
+            <p class="card-title-desc" style="margin-bottom: 14px;">Findings computed by pandas/numpy from your records — not canned text.</p>
+            {% for ins in insights %}
+            <div class="subject-count-list-item">
+                <span>{{ ins.icon }} {{ ins.text }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- matplotlib charts, rendered server-side in Python -->
+        <div class="history-analytics-two-grid">
+            <div class="feature-box-card" style="box-shadow: var(--shadow-card);">
+                <h3 class="card-title-heading" style="margin-bottom: 10px;">Score trend</h3>
+                {% if chart_trend %}
+                <img src="data:image/png;base64,{{ chart_trend }}" alt="Quiz score trend chart" style="width: 100%; border-radius: 10px;">
+                {% else %}
+                <p style="font-size: 0.88rem; color: var(--text-muted); font-style: italic; padding: 12px 0;">Take at least 2 quizzes to unlock this chart.</p>
+                {% endif %}
+            </div>
+            <div class="feature-box-card" style="box-shadow: var(--shadow-card);">
+                <h3 class="card-title-heading" style="margin-bottom: 10px;">Score distribution</h3>
+                {% if chart_histogram %}
+                <img src="data:image/png;base64,{{ chart_histogram }}" alt="Quiz score distribution histogram" style="width: 100%; border-radius: 10px;">
+                {% else %}
+                <p style="font-size: 0.88rem; color: var(--text-muted); font-style: italic; padding: 12px 0;">Take at least 3 quizzes to unlock this histogram.</p>
+                {% endif %}
+            </div>
+            <div class="feature-box-card" style="box-shadow: var(--shadow-card);">
+                <h3 class="card-title-heading" style="margin-bottom: 10px;">Study activity heatmap</h3>
+                {% if chart_heatmap %}
+                <img src="data:image/png;base64,{{ chart_heatmap }}" alt="Study activity heatmap" style="width: 100%; border-radius: 10px;">
+                {% else %}
+                <p style="font-size: 0.88rem; color: var(--text-muted); font-style: italic; padding: 12px 0;">Log at least 3 study sessions to unlock this heatmap.</p>
+                {% endif %}
+            </div>
+            <div class="feature-box-card" style="box-shadow: var(--shadow-card);">
+                <h3 class="card-title-heading" style="margin-bottom: 10px;">Mood vs productivity</h3>
+                {% if chart_scatter %}
+                <img src="data:image/png;base64,{{ chart_scatter }}" alt="Mood versus productivity scatter plot" style="width: 100%; border-radius: 10px;">
+                {% else %}
+                <p style="font-size: 0.88rem; color: var(--text-muted); font-style: italic; padding: 12px 0;">Log at least 3 sessions with varying mood to unlock this scatter plot.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- pandas describe() summary statistics -->
+        {% if session_describe %}
+        <div class="history-table-card">
+            <h3 class="card-title-heading">Exploratory summary — study sessions</h3>
+            <p class="card-title-desc" style="margin-bottom: 16px;">Output of <code>DataFrame.describe()</code> on your sessions data</p>
+            <div style="overflow-x: auto;">
+                <table class="custom-data-table">
+                    <thead>
+                        <tr><th>Statistic</th><th>Study hours</th><th>Sleep hours</th><th>Mood</th><th>Productivity</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for row in session_describe %}
+                        <tr>
+                            <td style="font-weight: 600;">{{ row.label }}</td>
+                            {% for v in row["values"] %}<td>{{ v }}</td>{% endfor %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if quiz_describe %}
+        <div class="history-table-card">
+            <h3 class="card-title-heading">Exploratory summary — quiz scores</h3>
+            <p class="card-title-desc" style="margin-bottom: 16px;">Output of <code>DataFrame.describe()</code> on your quiz score percentages</p>
+            <div style="overflow-x: auto;">
+                <table class="custom-data-table">
+                    <thead>
+                        <tr><th>Statistic</th><th>Score %</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for row in quiz_describe %}
+                        <tr>
+                            <td style="font-weight: 600;">{{ row.label }}</td>
+                            {% for v in row["values"] %}<td>{{ v }}</td>{% endfor %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- groupby breakdowns -->
+        <div class="history-analytics-two-grid">
+            <div class="feature-box-card" style="box-shadow: var(--shadow-card);">
+                <h3 class="card-title-heading" style="margin-bottom: 4px;">Hours by subject</h3>
+                <p class="card-title-desc" style="margin-bottom: 16px;">pandas <code>groupby</code> after exploding each session's subject list</p>
+                {% if subjects %}
+                    {% for s in subjects %}
+                    <div class="subject-count-list-item">
+                        <span>{{ s.subject }}</span>
+                        <span class="subject-badge-count">{{ s.hours }} hrs · {{ s.sessions }} sessions</span>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p style="font-size: 0.88rem; color: var(--text-muted); font-style: italic; padding: 12px 0;">No sessions yet.</p>
+                {% endif %}
+            </div>
+            <div class="feature-box-card" style="box-shadow: var(--shadow-card);">
+                <h3 class="card-title-heading" style="margin-bottom: 4px;">Quizzes by topic</h3>
+                <p class="card-title-desc" style="margin-bottom: 16px;">pandas <code>groupby</code> on quiz topics</p>
+                {% if topics %}
+                    {% for t in topics %}
+                    <div class="subject-count-list-item">
+                        <span>{{ t.topic }}</span>
+                        <span class="subject-badge-count">{{ t.attempts }} tries · avg {{ t.avg_pct }}% · best {{ t.best_pct }}%</span>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p style="font-size: 0.88rem; color: var(--text-muted); font-style: italic; padding: 12px 0;">No quizzes yet.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <p style="font-size: 0.8rem; color: var(--text-muted); text-align: center; margin-top: 18px;">
+            Built with pandas, numpy and matplotlib — charts are generated on the server from your live database records every time this page loads.
+        </p>
+        {% endif %}
+    </main>
+
+    <!-- Theme Switcher Script -->
+    <script>
+        function applyTheme(theme) {
+            document.body.className = theme;
+            localStorage.setItem('smart_study_theme', theme);
+            const btn = document.getElementById('themeToggleBtn');
+            if (btn) btn.innerHTML = theme === 'theme-dark' ? '☀️ Light' : '🌙 Dark';
+        }
+
+        function toggleTheme() {
+            const isDark = document.body.classList.contains('theme-dark');
+            applyTheme(isDark ? 'theme-light' : 'theme-dark');
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const saved = localStorage.getItem('smart_study_theme') || 'theme-light';
+            applyTheme(saved);
+        });
+    </script>
+</body>
+</html>
