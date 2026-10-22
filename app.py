@@ -866,6 +866,19 @@ def history():
     return render_template('history.html', sessions=sessions, stats=stats, session_count=len(sessions))
 
 
+@app.route('/analytics')
+@login_required
+def analytics():
+    """Learning Analytics page (DEVL): pandas exploration of the student's
+    own sessions/quiz data with server-side matplotlib charts.
+    Imported lazily so the rest of the app never pays the pandas import cost.
+    """
+    from analytics import build_analytics
+
+    data = build_analytics(session["user_id"])
+    return render_template('analytics.html', **data)
+
+
 # ================= REST API ENDPOINTS =================
 
 @app.route('/api/v1/token', methods=['GET'])
