@@ -28,6 +28,32 @@ class VercelPathFix:
         self.wsgi_app = wsgi_app
 
     def __call__(self, environ, start_response):
+        # TEMPORARY DIAGNOSTIC: dump what Vercel actually delivers.
+        if environ.get("HTTP_X_DEBUG_DUMP") == "1":
+            import json
+
+            keys = [
+                "REQUEST_METHOD",
+                "PATH_INFO",
+                "QUERY_STRING",
+                "SCRIPT_NAME",
+                "HTTP_X_FORWARDED_PATH",
+                "HTTP_X_VERCEL_PATH",
+                "HTTP_X_MATCHED_PATH",
+                "HTTP_X_VERCEL_ORIGINAL_PATH",
+                "HTTP_X_INVOKE_PATH",
+                "HTTP_X_ORIGINAL_URL",
+                "HTTP_X_FORWARDED_URI",
+                "REQUEST_URI",
+                "RAW_URI",
+            ]
+            dump = {k: environ.get(k) for k in keys}
+            body = json.dumps(dump, indent=1).encode()
+            start_response(
+                "200 OK",
+                [("Content-Type", "application/json"), ("Content-Length", str(len(body)))],
+            )
+            return [body]
         qs = environ.get("QUERY_STRING", "")
         if qs:
             pairs = parse_qsl(qs, keep_blank_values=True)
