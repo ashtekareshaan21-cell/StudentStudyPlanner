@@ -42,7 +42,15 @@ app = Flask(
 )
 
 # Secure secret key loading (persistent across serverless cold starts)
-app.secret_key = os.getenv("FLASK_SECRET_KEY") or os.getenv("SECRET_KEY") or "smartstudy-secret-key-vercel-production-2026"
+_secret = os.getenv("FLASK_SECRET_KEY") or os.getenv("SECRET_KEY")
+if not _secret:
+    # No hardcoded fallback: a committed key would let anyone forge sessions.
+    # A random per-process key keeps local dev working; on Vercel you MUST set
+    # FLASK_SECRET_KEY so sessions survive across serverless instances.
+    _secret = secrets.token_hex(32)
+    print("[WARN] FLASK_SECRET_KEY is not set. Using a random per-process key; "
+          "logins will not persist across restarts/instances until it is set.")
+app.secret_key = _secret
 
 # ================= DATABASE & MODELS CONFIGURATION =================
 # Dynamic DB URI: PostgreSQL in production, SQLite fallback locally / in /tmp on Vercel
@@ -85,7 +93,7 @@ from flask_limiter.util import get_remote_address
 limiter = Limiter(
     key_func=get_remote_address,
     app=app,
-    default_limits=["200 per day", "50 per hour"],
+    default_limits=["1000 per day", "200 per hour"],
     storage_uri="memory://"
 )
 
