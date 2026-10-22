@@ -15,16 +15,7 @@ from data_handler import (
     save_study_session,
     get_all_sessions,
     calculate_weekly_stats,
-    update_or_append_student_csv,
-    sync_all_students_to_csv,
-    get_students_csv_rows,
-    get_master_study_csv_rows,
-    get_csv_file_meta,
-    calculate_pure_python_csv_stats,
-    get_python_code_metrics,
-    get_student_csv_path,
-    STUDENTS_CSV_FILE,
-    MASTER_STUDY_CSV_FILE
+    update_or_append_student_csv
 )
 
 # Load environment variables
@@ -77,11 +68,7 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 from models import db, User, StudySession, StudyPlan, QuizResult, Task
 db.init_app(app)
 
-# Initialize Flask-Migrate for database schema migrations
-from flask_migrate import Migrate
-migrate = Migrate(app, db)
-
-# Ensure the database tables are created on boot as fallback
+# Ensure database tables exist
 try:
     with app.app_context():
         db.create_all()
@@ -1119,186 +1106,6 @@ def api_delete_task(task_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": f"Failed to delete task: {str(e)}"}), 500
-
-
-@app.route('/docs')
-def docs_index():
-    """
-    Redirect /docs to the Swagger UI page as default.
-    """
-    return redirect('/docs/swagger')
-
-@app.route('/docs/swagger')
-def docs_swagger():
-    """
-    Renders Swagger UI documentation panel.
-    """
-    return render_template('swagger_docs.html')
-
-@app.route('/docs/redoc')
-def docs_redoc():
-    """
-    Renders ReDoc documentation panel.
-    """
-    return render_template('redoc_docs.html')
-
-
-# ================= PYTHON ENGINE & CSV DATA HANDLING SHOWCASE =================
-
-@app.route('/python-engine')
-def python_engine():
-    """
-    Renders the in-depth Python Architecture, CPPS Curriculum Showcase,
-    and Live Student CSV Data Handling Hub.
-    """
-    sync_all_students_to_csv()
-    students = get_students_csv_rows()
-    master_sessions = get_master_study_csv_rows(limit=50)
-    students_meta = get_csv_file_meta(STUDENTS_CSV_FILE)
-    sessions_meta = get_csv_file_meta(MASTER_STUDY_CSV_FILE)
-    stats = calculate_pure_python_csv_stats()
-    metrics = get_python_code_metrics()
-
-    return render_template(
-        'python_engine.html',
-        students=students,
-        master_sessions=master_sessions,
-        students_meta=students_meta,
-        sessions_meta=sessions_meta,
-        stats=stats,
-        metrics=metrics
-    )
-
-
-@app.route('/download/students-csv')
-def download_students_csv():
-    """
-    Direct download of the master students_data.csv file.
-    """
-    sync_all_students_to_csv()
-    if os.path.exists(STUDENTS_CSV_FILE):
-        return send_file(
-            STUDENTS_CSV_FILE,
-            as_attachment=True,
-            download_name="students_data.csv",
-            mimetype="text/csv"
-        )
-    return "students_data.csv not found", 404
-
-
-@app.route('/download/sessions-csv')
-def download_sessions_csv():
-    """
-    Direct download of the master study_data.csv file.
-    """
-    if os.path.exists(MASTER_STUDY_CSV_FILE):
-        return send_file(
-            MASTER_STUDY_CSV_FILE,
-            as_attachment=True,
-            download_name="study_data.csv",
-            mimetype="text/csv"
-        )
-    return "study_data.csv not found", 404
-
-
-@app.route('/download/my-csv')
-@login_required
-def download_my_csv():
-    """
-    Direct download of the logged-in student's individual CSV session file.
-    """
-    csv_path = get_student_csv_path(session["user_id"])
-    if not os.path.exists(csv_path) or os.path.getsize(csv_path) == 0:
-        from data_handler import sync_db_to_csv
-        sync_db_to_csv(session["user_id"])
-    if os.path.exists(csv_path):
-        return send_file(
-            csv_path,
-            as_attachment=True,
-            download_name=f"student_sessions_{session['user_id']}.csv",
-            mimetype="text/csv"
-        )
-    return "Personal CSV not available yet", 404
-
-
-@app.route('/api/csv/sync', methods=['POST'])
-def api_csv_sync():
-    """
-    Triggers manual real-time synchronization of all student records to students_data.csv.
-    """
-    success = sync_all_students_to_csv()
-    students = get_students_csv_rows()
-    students_meta = get_csv_file_meta(STUDENTS_CSV_FILE)
-    stats = calculate_pure_python_csv_stats()
-    return jsonify({
-        "success": success,
-        "message": f"Successfully synchronized {len(students)} student records to students_data.csv.",
-        "meta": students_meta,
-        "stats": stats,
-        "students": students
-    })
-
-
-@app.route('/api/python/simulate-algorithm', methods=['POST'])
-def api_simulate_algorithm():
-    """
-    Live interactive simulation of the Python heuristic engine for testing and grading.
-    Demonstrates pure Python calculation steps, time-allocation, and scoring logic.
-    """
-    data = request.get_json(silent=True) or request.form
-    try:
-        mood = int(data.get('mood', 3))
-    except (ValueError, TypeError):
-        mood = 3
-    try:
-        study_hours = float(data.get('study_hours', 5.0))
-    except (ValueError, TypeError):
-        study_hours = 5.0
-    try:
-        sleep_hours = float(data.get('sleep_hours', 7.0))
-    except (ValueError, TypeError):
-        sleep_hours = 7.0
-    try:
-        days_left = int(data.get('days_left', 7))
-    except (ValueError, TypeError):
-        days_left = 7
-
-    subjects_raw = data.get('subjects', 'Data Structures, Computer Networks, CPPS')
-    subjects_list = [s.strip() for s in str(subjects_raw).split(',') if s.strip()] or ['CPPS']
-
-    from analyzer import analyze_mood, analyze_situation, calculate_productivity_score, detect_burnout
-    from study_planner import generate_schedule_blocks
-
-    mood_res = analyze_mood(mood)
-    sit_res = analyze_situation(days_left, study_hours)
-    prod_score = calculate_productivity_score(mood, sleep_hours, study_hours)
-    burn_res = detect_burnout(study_hours, sleep_hours)
-    sched_res = generate_schedule_blocks("18:00", subjects_list, study_hours, mood, sleep_hours)
-
-    return jsonify({
-        "success": True,
-        "inputs": {
-            "mood": mood,
-            "study_hours": study_hours,
-            "sleep_hours": sleep_hours,
-            "days_left": days_left,
-            "subjects": subjects_list
-        },
-        "python_trace": [
-            {"step": 1, "function": "analyzer.analyze_mood(mood_score)", "output": mood_res},
-            {"step": 2, "function": "analyzer.analyze_situation(days_left, study_hours)", "output": sit_res},
-            {"step": 3, "function": "analyzer.calculate_productivity_score(mood, sleep, study)", "output": {"productivity_score": prod_score}},
-            {"step": 4, "function": "analyzer.detect_burnout(study_hours, sleep_hours)", "output": burn_res},
-            {"step": 5, "function": "study_planner.generate_schedule_blocks(...)", "output": {"risk_index": sched_res.get("risk_index"), "blocks_count": len(sched_res.get("blocks", []))}},
-            {"step": 6, "function": "data_handler.update_or_append_student_csv(student_id)", "output": "Written to students_data.csv via csv.DictWriter"}
-        ],
-        "summary": {
-            "productivity_score": prod_score,
-            "burnout_risk": burn_res.get("risk_level"),
-            "risk_index": sched_res.get("risk_index"),
-            "blocks": sched_res.get("blocks", [])
-        }
-    })
 
 
 if __name__ == "__main__":
