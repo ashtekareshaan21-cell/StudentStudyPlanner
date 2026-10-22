@@ -1,6 +1,5 @@
 import os
 import sys
-from urllib.parse import parse_qsl, urlencode
 
 # Ensure both the project root directory and current directories are on sys.path
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -13,62 +12,42 @@ for p in (ROOT_DIR, CURRENT_DIR, os.getcwd()):
 # Import the WSGI Flask application
 from app import app
 
-
-# WSGI middleware that restores the original request path.
-#
-# vercel.json rewrites every request to /api/index and passes the original
-# path in the __ssp_path query parameter (destination:
-# "/api/index?__ssp_path=:path*"), so PATH_INFO arrives as /api/index for
-# every request and Flask would route everything to "/". This middleware
-# swaps in the real path and removes the helper parameter from the query
-# string. If __ssp_path is absent (local runs, direct /api/index calls) the
-# request is passed through untouched.
+# WSGI middleware to handle Vercel's backend rewrite routing and query strings
 class VercelPathFix:
     def __init__(self, wsgi_app):
         self.wsgi_app = wsgi_app
 
     def __call__(self, environ, start_response):
-        # TEMPORARY DIAGNOSTIC: dump what Vercel actually delivers.
-        if environ.get("HTTP_X_DEBUG_DUMP") == "1":
-            import json
+        path = environ.get('PATH_INFO', '')
 
-            keys = [
-                "REQUEST_METHOD",
-                "PATH_INFO",
-                "QUERY_STRING",
-                "SCRIPT_NAME",
-                "HTTP_X_FORWARDED_PATH",
-                "HTTP_X_VERCEL_PATH",
-                "HTTP_X_MATCHED_PATH",
-                "HTTP_X_VERCEL_ORIGINAL_PATH",
-                "HTTP_X_INVOKE_PATH",
-                "HTTP_X_ORIGINAL_URL",
-                "HTTP_X_FORWARDED_URI",
-                "REQUEST_URI",
-                "RAW_URI",
-            ]
-            dump = {k: environ.get(k) for k in keys}
-            body = json.dumps(dump, indent=1).encode()
-            start_response(
-                "200 OK",
-                [("Content-Type", "application/json"), ("Content-Length", str(len(body)))],
-            )
-            return [body]
-        qs = environ.get("QUERY_STRING", "")
-        if qs:
-            pairs = parse_qsl(qs, keep_blank_values=True)
-            path_val = None
-            kept = []
-            for key, value in pairs:
-                if key == "__ssp_path" and path_val is None:
-                    path_val = value
-                else:
-                    kept.append((key, value))
-            if path_val is not None:
-                environ["PATH_INFO"] = "/" + path_val if path_val else "/"
-                environ["QUERY_STRING"] = urlencode(kept)
+        # 1. Check if Vercel provided original forwarded path headers
+        original_path = (
+            environ.get('HTTP_X_FORWARDED_PATH') or
+            environ.get('HTTP_X_VERCEL_PATH') or
+            environ.get('HTTP_X_MATCHED_PATH')
+        )
+        
+        target_path = original_path if (original_path and not original_path.startswith('/api/index')) else path
+
+        # 2. Separate query string if embedded in target_path
+        if '?' in target_path:
+            clean_path, qs = target_path.split('?', 1)
+            environ['PATH_INFO'] = clean_path
+            if not environ.get('QUERY_STRING'):
+                environ['QUERY_STRING'] = qs
+        else:
+            # 3. Normalize and strip /api/index.py, /api/index, or /api prefixes if needed
+            for prefix in ('/api/index.py', '/api/index', '/api'):
+                if target_path.startswith(prefix):
+                    remainder = target_path[len(prefix):]
+                    if remainder in ('', '/'):
+                        target_path = '/'
+                    elif remainder.startswith('/'):
+                        target_path = remainder
+                    break
+            environ['PATH_INFO'] = target_path
+
         return self.wsgi_app(environ, start_response)
-
 
 # Apply WSGI fix
 app.wsgi_app = VercelPathFix(app.wsgi_app)
