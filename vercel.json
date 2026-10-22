@@ -1,7 +1,12 @@
 {
   "functions": {
     "api/index.py": {
-      "includeFiles": "templates/**,static/**"
+      "includeFiles": [
+        "*.py",
+        "templates/**",
+        "static/**",
+        "study_data.csv"
+      ]
     }
   },
   "rewrites": [
@@ -11,4 +16,3 @@
     }
   ]
 }
-
