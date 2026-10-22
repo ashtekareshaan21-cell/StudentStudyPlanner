@@ -1,5 +1,6 @@
 import os
 import sys
+from urllib.parse import parse_qsl, urlencode
 
 # Ensure both the project root directory and current directories are on sys.path
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -12,42 +13,36 @@ for p in (ROOT_DIR, CURRENT_DIR, os.getcwd()):
 # Import the WSGI Flask application
 from app import app
 
-# WSGI middleware to handle Vercel's backend rewrite routing and query strings
+
+# WSGI middleware that restores the original request path.
+#
+# vercel.json rewrites every request to /api/index and passes the original
+# path in the __ssp_path query parameter (destination:
+# "/api/index?__ssp_path=:path*"), so PATH_INFO arrives as /api/index for
+# every request and Flask would route everything to "/". This middleware
+# swaps in the real path and removes the helper parameter from the query
+# string. If __ssp_path is absent (local runs, direct /api/index calls) the
+# request is passed through untouched.
 class VercelPathFix:
     def __init__(self, wsgi_app):
         self.wsgi_app = wsgi_app
 
     def __call__(self, environ, start_response):
-        path = environ.get('PATH_INFO', '')
-
-        # 1. Check if Vercel provided original forwarded path headers
-        original_path = (
-            environ.get('HTTP_X_FORWARDED_PATH') or
-            environ.get('HTTP_X_VERCEL_PATH') or
-            environ.get('HTTP_X_MATCHED_PATH')
-        )
-        
-        target_path = original_path if (original_path and not original_path.startswith('/api/index')) else path
-
-        # 2. Separate query string if embedded in target_path
-        if '?' in target_path:
-            clean_path, qs = target_path.split('?', 1)
-            environ['PATH_INFO'] = clean_path
-            if not environ.get('QUERY_STRING'):
-                environ['QUERY_STRING'] = qs
-        else:
-            # 3. Normalize and strip /api/index.py, /api/index, or /api prefixes if needed
-            for prefix in ('/api/index.py', '/api/index', '/api'):
-                if target_path.startswith(prefix):
-                    remainder = target_path[len(prefix):]
-                    if remainder in ('', '/'):
-                        target_path = '/'
-                    elif remainder.startswith('/'):
-                        target_path = remainder
-                    break
-            environ['PATH_INFO'] = target_path
-
+        qs = environ.get("QUERY_STRING", "")
+        if qs:
+            pairs = parse_qsl(qs, keep_blank_values=True)
+            path_val = None
+            kept = []
+            for key, value in pairs:
+                if key == "__ssp_path" and path_val is None:
+                    path_val = value
+                else:
+                    kept.append((key, value))
+            if path_val is not None:
+                environ["PATH_INFO"] = "/" + path_val if path_val else "/"
+                environ["QUERY_STRING"] = urlencode(kept)
         return self.wsgi_app(environ, start_response)
+
 
 # Apply WSGI fix
 app.wsgi_app = VercelPathFix(app.wsgi_app)
