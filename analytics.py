@@ -133,9 +133,11 @@ def subject_breakdown(sessions):
     ).explode("subject")
     exploded["subject"] = exploded["subject"].str.strip()
     exploded = exploded[exploded["subject"] != ""]
-    counts = exploded.groupby("subject")["study_hours"].transform("size")
+    # split each session's hours equally across the subjects that session
+    # lists (count of subjects per session, NOT per subject)
+    subjects_per_session = exploded.groupby("id")["subject"].transform("size")
     exploded = exploded.assign(
-        share_hours=exploded["study_hours"] / counts
+        share_hours=exploded["study_hours"] / subjects_per_session
     )
     grouped = (
         exploded.groupby("subject")
